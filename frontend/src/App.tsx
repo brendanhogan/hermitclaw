@@ -429,6 +429,13 @@ export default function App() {
           )}
           <div ref={scrollRef} style={chatScroll}>
           <div style={container}>
+            {messages.length === 0 && (
+              <div style={emptyState}>
+                <div style={emptyIcon}>~</div>
+                <div style={emptyTitle}>Waiting for thoughts...</div>
+                <div style={emptySubtitle}>{crabName} is getting ready</div>
+              </div>
+            )}
             {messages.map((msg, i) => {
               if (msg.side === "system") {
                 const sBlock = msg.phase === "dream" ? dreamSystemBlock
@@ -529,39 +536,49 @@ export default function App() {
   );
 }
 
+// ── Shared palette ──
+const DARK = "#0f0f1a";
+const DARK_MID = "#1a1a2e";
+const DARK_BORDER = "#2a2a4a";
+const SURFACE = "#f4f4f8";
+const BORDER = "#e2e2ea";
+const MONO = "'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace";
+const SANS = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+
 const page: React.CSSProperties = {
-  background: "#fff",
+  background: DARK,
   color: "#111",
-  fontFamily:
-    "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+  fontFamily: SANS,
   height: "100vh",
   overflow: "hidden",
   display: "flex",
   flexDirection: "column",
 };
 
+// ── Header ──
 const headerBar: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
-  justifyContent: "center",
-  padding: "12px 32px",
-  background: "#1a1a2e",
-  borderBottom: "1px solid #2a2a4a",
+  gap: 16,
+  padding: "10px 24px",
+  background: DARK,
+  borderBottom: `1px solid ${DARK_BORDER}`,
   flexShrink: 0,
 };
 
 const headerIcon: React.CSSProperties = {
-  maxWidth: "100%",
-  maxHeight: 80,
+  maxHeight: 48,
 };
 
 const headerTitle: React.CSSProperties = {
-  fontSize: 28,
-  fontWeight: 800,
+  fontSize: 24,
+  fontWeight: 700,
   color: "#fff",
   whiteSpace: "nowrap",
+  letterSpacing: "-0.3px",
 };
 
+// ── Layout ──
 const twoPane: React.CSSProperties = {
   display: "flex",
   flex: 1,
@@ -573,8 +590,8 @@ const gamePane: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  background: "#1a1a2e",
-  padding: 16,
+  background: DARK_MID,
+  padding: 20,
   flexShrink: 0,
 };
 
@@ -583,6 +600,8 @@ const chatPane: React.CSSProperties = {
   height: "100%",
   display: "flex",
   flexDirection: "column",
+  background: SURFACE,
+  borderLeft: `1px solid ${BORDER}`,
 };
 
 const chatScroll: React.CSSProperties = {
@@ -591,17 +610,46 @@ const chatScroll: React.CSSProperties = {
 };
 
 const container: React.CSSProperties = {
-  maxWidth: 800,
+  maxWidth: 720,
   margin: "0 auto",
-  padding: "20px 16px",
+  padding: "24px 20px",
 };
 
+// ── Empty state ──
+const emptyState: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "80px 20px",
+  gap: 8,
+};
+
+const emptyIcon: React.CSSProperties = {
+  fontSize: 32,
+  color: "#c4c4d0",
+  fontFamily: MONO,
+};
+
+const emptyTitle: React.CSSProperties = {
+  fontSize: 16,
+  fontWeight: 600,
+  color: "#8888a0",
+  letterSpacing: "-0.2px",
+};
+
+const emptySubtitle: React.CSSProperties = {
+  fontSize: 13,
+  color: "#aaa",
+};
+
+// ── Crab switcher ──
 const switcherBar: React.CSSProperties = {
   display: "flex",
-  gap: 4,
-  padding: "6px 12px",
-  borderBottom: "1px solid #e0e0e0",
-  background: "#fafafa",
+  gap: 6,
+  padding: "8px 16px",
+  borderBottom: `1px solid ${BORDER}`,
+  background: "#fff",
   overflowX: "auto",
   flexShrink: 0,
 };
@@ -611,65 +659,89 @@ const switcherBtnBase: React.CSSProperties = {
   flexDirection: "column",
   alignItems: "center",
   gap: 2,
-  padding: "6px 14px",
+  padding: "6px 16px",
   borderRadius: 8,
-  border: "1px solid #d4d4d8",
+  border: `1px solid ${BORDER}`,
   fontSize: 13,
   fontWeight: 600,
   cursor: "pointer",
   whiteSpace: "nowrap",
   transition: "all 0.15s",
+  background: "transparent",
 };
 
 const switcherBtnActive: React.CSSProperties = {
   ...switcherBtnBase,
-  background: "#007aff",
+  background: DARK_MID,
   color: "#fff",
-  borderColor: "#007aff",
+  borderColor: DARK_MID,
 };
 
 const switcherBtnInactive: React.CSSProperties = {
   ...switcherBtnBase,
   background: "#fff",
-  color: "#333",
+  color: "#555",
 };
 
 const switcherState: React.CSSProperties = {
   fontSize: 10,
   fontWeight: 500,
   textTransform: "uppercase",
-  letterSpacing: "0.3px",
+  letterSpacing: "0.4px",
+};
+
+// ── Chat bubbles ──
+const bubbleBase: React.CSSProperties = {
+  padding: "10px 16px",
+  maxWidth: "78%",
+  boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
 };
 
 const bubbleLeft: React.CSSProperties = {
-  background: "#e9e9eb",
-  borderRadius: "18px 18px 18px 4px",
-  padding: "8px 14px",
-  maxWidth: "75%",
+  ...bubbleBase,
+  background: "#fff",
+  borderRadius: "16px 16px 16px 4px",
+  border: `1px solid ${BORDER}`,
 };
 
 const bubbleRight: React.CSSProperties = {
-  background: "#007aff",
+  ...bubbleBase,
+  background: DARK_MID,
   color: "#fff",
-  borderRadius: "18px 18px 4px 18px",
-  padding: "8px 14px",
-  maxWidth: "75%",
+  borderRadius: "16px 16px 4px 16px",
 };
 
-// Dream bubble styles — purple theme
 const dreamBubbleLeft: React.CSSProperties = {
-  background: "#6d28d9",
-  borderRadius: "18px 18px 18px 4px",
-  padding: "8px 14px",
-  maxWidth: "75%",
+  ...bubbleBase,
+  background: "#7c3aed",
+  borderRadius: "16px 16px 16px 4px",
 };
 
 const dreamBubbleRight: React.CSSProperties = {
-  background: "#7c3aed",
+  ...bubbleBase,
+  background: "#6d28d9",
   color: "#fff",
-  borderRadius: "18px 18px 4px 18px",
-  padding: "8px 14px",
-  maxWidth: "75%",
+  borderRadius: "16px 16px 4px 16px",
+};
+
+const planBubbleLeft: React.CSSProperties = {
+  ...bubbleBase,
+  background: "#0d9488",
+  borderRadius: "16px 16px 16px 4px",
+};
+
+const planBubbleRight: React.CSSProperties = {
+  ...bubbleBase,
+  background: "#0f766e",
+  color: "#fff",
+  borderRadius: "16px 16px 4px 16px",
+};
+
+const respondBubble: React.CSSProperties = {
+  ...bubbleBase,
+  background: "#ea580c",
+  color: "#fff",
+  borderRadius: "16px 16px 4px 16px",
 };
 
 const snapshotImg: React.CSSProperties = {
@@ -684,26 +756,27 @@ const bubbleText: React.CSSProperties = {
   margin: 0,
   whiteSpace: "pre-wrap",
   wordBreak: "break-word",
-  fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace",
-  fontSize: 13,
-  lineHeight: "1.5",
+  fontFamily: MONO,
+  fontSize: 12.5,
+  lineHeight: "1.6",
 };
 
+// ── System blocks ──
 const systemBlock: React.CSSProperties = {
-  background: "#f5f5f5",
-  borderRadius: 12,
-  padding: "12px 16px",
+  background: "#fff",
+  borderRadius: 10,
+  padding: "14px 18px",
   marginBottom: 16,
-  border: "1px solid #e0e0e0",
+  border: `1px solid ${BORDER}`,
 };
 
 const systemLabel: React.CSSProperties = {
-  fontSize: 11,
+  fontSize: 10,
   fontWeight: 700,
-  color: "#999",
+  color: "#aaa",
   textTransform: "uppercase",
-  marginBottom: 6,
-  letterSpacing: "0.5px",
+  marginBottom: 8,
+  letterSpacing: "0.8px",
 };
 
 const systemText: React.CSSProperties = {
@@ -711,142 +784,96 @@ const systemText: React.CSSProperties = {
   whiteSpace: "pre-wrap",
   wordBreak: "break-word",
   fontSize: 12,
-  lineHeight: "1.5",
+  lineHeight: "1.6",
   color: "#555",
-  fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace",
+  fontFamily: MONO,
 };
 
-// Dream system block — purple divider
 const dreamSystemBlock: React.CSSProperties = {
-  background: "#f5f3ff",
-  borderRadius: 12,
-  padding: "12px 16px",
-  marginBottom: 16,
-  border: "1px solid #c4b5fd",
+  ...systemBlock,
+  background: "#faf5ff",
+  borderColor: "#ddd6fe",
 };
 
 const dreamSystemLabel: React.CSSProperties = {
-  fontSize: 11,
-  fontWeight: 700,
+  ...systemLabel,
   color: "#7c3aed",
-  textTransform: "uppercase",
-  marginBottom: 6,
-  letterSpacing: "0.5px",
 };
 
 const dreamSystemText: React.CSSProperties = {
-  margin: 0,
-  whiteSpace: "pre-wrap",
-  wordBreak: "break-word",
-  fontSize: 12,
-  lineHeight: "1.5",
-  color: "#6d28d9",
-  fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace",
+  ...systemText,
+  color: "#5b21b6",
 };
 
-// Planning bubble styles — green/teal theme
-const planBubbleLeft: React.CSSProperties = {
-  background: "#0d9488",
-  borderRadius: "18px 18px 18px 4px",
-  padding: "8px 14px",
-  maxWidth: "75%",
-};
-
-const planBubbleRight: React.CSSProperties = {
-  background: "#14b8a6",
-  color: "#fff",
-  borderRadius: "18px 18px 4px 18px",
-  padding: "8px 14px",
-  maxWidth: "75%",
-};
-
-// Planning system block — green divider
 const planSystemBlock: React.CSSProperties = {
+  ...systemBlock,
   background: "#f0fdfa",
-  borderRadius: 12,
-  padding: "12px 16px",
-  marginBottom: 16,
-  border: "1px solid #99f6e4",
+  borderColor: "#a7f3d0",
 };
 
 const planSystemLabel: React.CSSProperties = {
-  fontSize: 11,
-  fontWeight: 700,
+  ...systemLabel,
   color: "#0d9488",
-  textTransform: "uppercase",
-  marginBottom: 6,
-  letterSpacing: "0.5px",
 };
 
 const planSystemText: React.CSSProperties = {
-  margin: 0,
-  whiteSpace: "pre-wrap",
-  wordBreak: "break-word",
-  fontSize: 12,
-  lineHeight: "1.5",
+  ...systemText,
   color: "#115e59",
-  fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace",
 };
 
-// Respond bubble — speech from crab to user (orange/warm)
-const respondBubble: React.CSSProperties = {
-  background: "#ea580c",
-  color: "#fff",
-  borderRadius: "18px 18px 4px 18px",
-  padding: "8px 14px",
-  maxWidth: "75%",
-};
-
-// Input bar styles
+// ── Input bar ──
 const inputBar: React.CSSProperties = {
-  borderTop: "1px solid #e0e0e0",
-  padding: "8px 16px",
-  background: "#fafafa",
+  borderTop: `1px solid ${BORDER}`,
+  padding: "12px 20px",
+  background: "#fff",
   display: "flex",
   alignItems: "center",
-  gap: 8,
+  gap: 10,
 };
 
 const inputForm: React.CSSProperties = {
   display: "flex",
   flex: 1,
-  gap: 8,
+  gap: 10,
 };
 
 const inputField: React.CSSProperties = {
   flex: 1,
-  padding: "8px 12px",
-  borderRadius: 20,
-  border: "1px solid #d4d4d8",
-  fontSize: 14,
-  fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace",
+  padding: "10px 16px",
+  borderRadius: 10,
+  border: `1px solid ${BORDER}`,
+  fontSize: 13,
+  fontFamily: MONO,
   outline: "none",
+  background: SURFACE,
+  color: "#333",
 };
 
 const sendBtn: React.CSSProperties = {
-  padding: "8px 16px",
-  borderRadius: 20,
+  padding: "10px 20px",
+  borderRadius: 10,
   border: "none",
-  background: "#007aff",
+  background: DARK_MID,
   color: "#fff",
-  fontSize: 14,
+  fontSize: 13,
   fontWeight: 600,
   cursor: "pointer",
+  letterSpacing: "0.2px",
 };
 
 const countdownStyle: React.CSSProperties = {
   fontSize: 13,
   fontWeight: 700,
   color: "#ea580c",
-  fontFamily: "monospace",
+  fontFamily: MONO,
   minWidth: 30,
 };
 
 const focusBtnInactive: React.CSSProperties = {
-  padding: "6px 12px",
-  borderRadius: 20,
-  border: "1px solid #d4d4d8",
-  background: "#fff",
+  padding: "8px 14px",
+  borderRadius: 10,
+  border: `1px solid ${BORDER}`,
+  background: SURFACE,
   color: "#999",
   fontSize: 12,
   fontWeight: 600,
@@ -855,8 +882,8 @@ const focusBtnInactive: React.CSSProperties = {
 };
 
 const focusBtnActive: React.CSSProperties = {
-  padding: "6px 12px",
-  borderRadius: 20,
+  padding: "8px 14px",
+  borderRadius: 10,
   border: "1px solid #ea580c",
   background: "#ea580c",
   color: "#fff",
@@ -868,11 +895,11 @@ const focusBtnActive: React.CSSProperties = {
 
 const newMsgPill: React.CSSProperties = {
   textAlign: "center",
-  padding: "6px 0",
-  background: "#007aff",
+  padding: "8px 0",
+  background: DARK_MID,
   color: "#fff",
-  fontSize: 13,
+  fontSize: 12,
   fontWeight: 600,
   cursor: "pointer",
-  letterSpacing: "0.3px",
+  letterSpacing: "0.4px",
 };
