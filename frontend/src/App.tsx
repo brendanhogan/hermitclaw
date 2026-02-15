@@ -395,6 +395,10 @@ export default function App() {
 
   return (
     <div style={page}>
+      <div style={headerBar}>
+        <img src="/icon.png" alt="HermitClaw" style={headerIcon} />
+        <span style={headerTitle}>HermitClaw</span>
+      </div>
       <div style={twoPane}>
         {/* Left pane — Game world */}
         <div style={gamePane}>
@@ -532,11 +536,37 @@ const page: React.CSSProperties = {
     "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
   height: "100vh",
   overflow: "hidden",
+  display: "flex",
+  flexDirection: "column",
+};
+
+const headerBar: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  padding: "6px 16px",
+  background: "#1a1a2e",
+  borderBottom: "1px solid #2a2a4a",
+  flexShrink: 0,
+};
+
+const headerIcon: React.CSSProperties = {
+  width: 28,
+  height: 28,
+  borderRadius: 6,
+};
+
+const headerTitle: React.CSSProperties = {
+  fontSize: 15,
+  fontWeight: 700,
+  color: "#e2e8f0",
+  letterSpacing: "0.3px",
 };
 
 const twoPane: React.CSSProperties = {
   display: "flex",
-  height: "100vh",
+  flex: 1,
+  overflow: "hidden",
 };
 
 const gamePane: React.CSSProperties = {
@@ -551,7 +581,7 @@ const gamePane: React.CSSProperties = {
 
 const chatPane: React.CSSProperties = {
   width: "55%",
-  height: "100vh",
+  height: "100%",
   display: "flex",
   flexDirection: "column",
 };
