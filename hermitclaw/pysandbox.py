@@ -66,10 +66,23 @@ def setup(env_root):
         if hasattr(os, name):
             setattr(os, name, _blocked(name))
 
+    # --- Neuter shutil: allow import but block dangerous operations ---
+    # Many libraries (pymupdf -> tarfile -> shutil) import shutil transitively.
+    # Setting it to None breaks those imports entirely. Instead, we import it
+    # and then replace its dangerous functions with no-ops.
+    import shutil as _shutil
+    def _shutil_blocked(name):
+        def nope(*a, **k):
+            raise PermissionError(f"shutil.{name}() is blocked in sandbox")
+        return nope
+    for _fn in ("rmtree", "move", "copy", "copy2", "copytree",
+                "chown", "make_archive", "unpack_archive"):
+        setattr(_shutil, _fn, _shutil_blocked(_fn))
+
     # --- Block dangerous module imports ---
     # Note: we block urllib.request (network access) but NOT urllib or urllib.parse,
     # because pathlib and many libraries import urllib.parse for URL string handling.
-    for mod in ("subprocess", "shutil", "socket", "http", "urllib.request",
+    for mod in ("subprocess", "socket", "http", "urllib.request",
                 "ftplib", "smtplib", "ctypes", "multiprocessing", "signal",
                 "webbrowser"):
         sys.modules[mod] = None
