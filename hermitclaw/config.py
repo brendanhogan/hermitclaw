@@ -5,17 +5,46 @@ import yaml
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "config.yaml")
 
+# Known provider presets: provider_name -> default base_url
+PROVIDER_PRESETS = {
+    "openai": None,  # uses OpenAI default
+    "openrouter": "https://openrouter.ai/api/v1",
+}
+
+# Provider-specific API key env vars (checked before OPENAI_API_KEY fallback)
+PROVIDER_KEY_ENV_VARS = {
+    "openrouter": "OPENROUTER_API_KEY",
+}
+
 
 def load_config() -> dict:
     """Load config from config.yaml, with env var overrides."""
     with open(CONFIG_PATH, "r") as f:
         config = yaml.safe_load(f)
 
-    # Environment variable overrides
+    # Provider (default: openai)
+    config["provider"] = (
+        os.environ.get("HERMITCLAW_PROVIDER")
+        or config.get("provider", "openai")
+    )
+    provider = config["provider"]
+
+    # Base URL: env var > config > provider preset
+    config["base_url"] = (
+        os.environ.get("HERMITCLAW_BASE_URL")
+        or config.get("base_url")
+        or PROVIDER_PRESETS.get(provider)
+    )
+
+    # API key: provider-specific env var > OPENAI_API_KEY > config
+    provider_key_var = PROVIDER_KEY_ENV_VARS.get(provider)
     config["api_key"] = (
-        os.environ.get("OPENAI_API_KEY")
+        (os.environ.get(provider_key_var) if provider_key_var else None)
+        or os.environ.get("OPENAI_API_KEY")
         or config.get("api_key")
     )
+
+    # Model
     config["model"] = os.environ.get("HERMITCLAW_MODEL") or config.get("model", "gpt-4o")
 
     # Defaults for numeric settings
@@ -31,6 +60,10 @@ def load_config() -> dict:
     project_root = os.path.dirname(os.path.dirname(__file__))
     if not os.path.isabs(config["environment_path"]):
         config["environment_path"] = os.path.join(project_root, config["environment_path"])
+
+    # Validation
+    if provider == "custom" and not config.get("base_url"):
+        raise ValueError("Provider 'custom' requires base_url in config.yaml or HERMITCLAW_BASE_URL env var")
 
     return config
 

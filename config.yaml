@@ -1,6 +1,8 @@
 # HermitClaw Configuration
+provider: "openai"              # "openai" | "openrouter" | "custom"
 model: "gpt-4.1"
-api_key: null                   # set here or via OPENAI_API_KEY env var
+api_key: null                   # set here or via OPENAI_API_KEY / OPENROUTER_API_KEY env var
+base_url: null                  # auto-set for known providers; required for "custom"
 
 thinking_pace_seconds: 5       # how often it thinks (steady pulse)
 max_thoughts_in_context: 4     # rolling window of recent thoughts
