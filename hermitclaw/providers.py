@@ -136,6 +136,45 @@ def _translate_multimodal(content_parts: list[dict]) -> list[dict]:
     return result
 
 
+def _normalize_completions_response(response) -> dict:
+    """Normalize a Chat Completions response into the same format as _chat_responses.
+
+    Returns {"text", "tool_calls", "output"} where output contains dicts
+    that brain.py can safely append to input_list for follow-up calls.
+    """
+    message = response.choices[0].message
+    text = message.content
+    tool_calls = []
+    output = []
+
+    if message.tool_calls:
+        for tc in message.tool_calls:
+            tool_calls.append({
+                "name": tc.function.name,
+                "arguments": json.loads(tc.function.arguments),
+                "call_id": tc.id,
+            })
+
+        # Build a synthetic assistant message for brain.py's input_list
+        output.append({
+            "role": "assistant",
+            "content": text,
+            "tool_calls": [
+                {
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {
+                        "name": tc.function.name,
+                        "arguments": tc.function.arguments,
+                    },
+                }
+                for tc in message.tool_calls
+            ],
+        })
+
+    return {"text": text, "tool_calls": tool_calls, "output": output}
+
+
 def _client() -> openai.OpenAI:
     return openai.OpenAI(api_key=config["api_key"])
 

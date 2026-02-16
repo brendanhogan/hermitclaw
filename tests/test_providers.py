@@ -1,6 +1,10 @@
 """Tests for multi-provider translation in providers.py."""
 
-from hermitclaw.providers import _translate_tools_for_completions, _translate_input_to_messages
+from hermitclaw.providers import (
+    _translate_tools_for_completions,
+    _translate_input_to_messages,
+    _normalize_completions_response,
+)
 
 
 def test_translate_tools_filters_web_search():
@@ -93,3 +97,87 @@ def test_translate_skips_responses_api_objects():
     messages = _translate_input_to_messages(input_list, instructions=None)
     assert len(messages) == 1
     assert messages[0]["role"] == "user"
+
+
+def test_normalize_text_only_response():
+    """A text-only response should have text set and empty tool_calls."""
+    class FakeContent:
+        def __init__(self):
+            self.content = "I'm thinking about shells."
+            self.tool_calls = None
+    class FakeChoice:
+        def __init__(self):
+            self.message = FakeContent()
+    class FakeResponse:
+        def __init__(self):
+            self.choices = [FakeChoice()]
+
+    result = _normalize_completions_response(FakeResponse())
+    assert result["text"] == "I'm thinking about shells."
+    assert result["tool_calls"] == []
+    assert result["output"] == []
+
+
+def test_normalize_tool_call_response():
+    """Tool calls should be normalized to same format as Responses API."""
+    class FakeFunction:
+        def __init__(self):
+            self.name = "shell"
+            self.arguments = '{"command": "ls"}'
+    class FakeToolCall:
+        def __init__(self):
+            self.id = "call_abc"
+            self.type = "function"
+            self.function = FakeFunction()
+    class FakeContent:
+        def __init__(self):
+            self.content = None
+            self.tool_calls = [FakeToolCall()]
+    class FakeChoice:
+        def __init__(self):
+            self.message = FakeContent()
+    class FakeResponse:
+        def __init__(self):
+            self.choices = [FakeChoice()]
+
+    result = _normalize_completions_response(FakeResponse())
+    assert result["text"] is None
+    assert len(result["tool_calls"]) == 1
+    tc = result["tool_calls"][0]
+    assert tc["name"] == "shell"
+    assert tc["arguments"] == {"command": "ls"}
+    assert tc["call_id"] == "call_abc"
+
+
+def test_normalize_output_for_tool_loop():
+    """output list should contain dicts that brain.py can append to input_list.
+
+    When brain.py does input_list += response["output"], the resulting items
+    must be translatable by _translate_input_to_messages on the next call.
+    """
+    class FakeFunction:
+        def __init__(self):
+            self.name = "shell"
+            self.arguments = '{"command": "ls"}'
+    class FakeToolCall:
+        def __init__(self):
+            self.id = "call_abc"
+            self.type = "function"
+            self.function = FakeFunction()
+    class FakeContent:
+        def __init__(self):
+            self.content = "Let me check."
+            self.tool_calls = [FakeToolCall()]
+    class FakeChoice:
+        def __init__(self):
+            self.message = FakeContent()
+    class FakeResponse:
+        def __init__(self):
+            self.choices = [FakeChoice()]
+
+    result = _normalize_completions_response(FakeResponse())
+    assert len(result["output"]) == 1
+    msg = result["output"][0]
+    assert msg["role"] == "assistant"
+    assert msg["content"] == "Let me check."
+    assert msg["tool_calls"][0]["id"] == "call_abc"
