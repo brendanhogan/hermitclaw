@@ -78,7 +78,25 @@ def _serialize_output(output) -> list:
             else:
                 items.append({"type": item.type})
         elif isinstance(item, dict):
-            items.append(item)
+            if item.get("type") == "message":
+                content = item.get("content", "")
+                if isinstance(content, str):
+                    content_parts = [{"type": "text", "text": content}] if content else []
+                elif isinstance(content, list):
+                    content_parts = []
+                    for c in content:
+                        if isinstance(c, dict):
+                            if "text" in c:
+                                content_parts.append({"type": "text", "text": str(c.get("text", ""))})
+                            else:
+                                content_parts.append({"type": str(c.get("type", "unknown"))})
+                        else:
+                            content_parts.append({"type": "text", "text": str(c)})
+                else:
+                    content_parts = [{"type": "text", "text": str(content)}] if content else []
+                items.append({"type": "message", "content": content_parts})
+            else:
+                items.append(item)
         else:
             items.append({"type": "unknown", "repr": str(item)[:200]})
     return items

@@ -34,8 +34,20 @@ function renderInputItem(item: Record<string, unknown>, phase: Phase): Msg | nul
       let text = "";
       let image: string | undefined;
       for (const part of content) {
-        if (part.type === "input_text") text = part.text as string;
-        if (part.type === "input_image") image = part.image_url as string;
+        if (!part || typeof part !== "object") continue;
+        const p = part as Record<string, unknown>;
+        const partType = p.type;
+        if (partType === "input_text" || partType === "text") {
+          text = String(p.text ?? "");
+        }
+        if (partType === "input_image" || partType === "image_url") {
+          const raw = p.image_url;
+          if (typeof raw === "string") {
+            image = raw;
+          } else if (raw && typeof raw === "object") {
+            image = String((raw as Record<string, unknown>).url ?? "");
+          }
+        }
       }
       return { side: "left", text: text || "[image]", phase, image };
     }
@@ -55,10 +67,24 @@ function renderInputItem(item: Record<string, unknown>, phase: Phase): Msg | nul
  */
 function renderOutputItem(item: Record<string, unknown>, phase: Phase): Msg | null {
   if (item.type === "message") {
-    const content = item.content as Array<Record<string, unknown>>;
-    const text = content
-      ?.map((c) => (c.text as string) || `[${c.type}]`)
-      .join("\n");
+    const content = item.content;
+    let text = "";
+    if (typeof content === "string") {
+      text = content;
+    } else if (Array.isArray(content)) {
+      text = content
+        .map((c) => {
+          if (!c || typeof c !== "object") return "";
+          const part = c as Record<string, unknown>;
+          if (typeof part.text === "string") return part.text;
+          return part.type ? `[${String(part.type)}]` : "";
+        })
+        .filter(Boolean)
+        .join("\n");
+    } else if (content && typeof content === "object") {
+      const part = content as Record<string, unknown>;
+      if (typeof part.text === "string") text = part.text;
+    }
     if (text) return { side: "right", text, phase };
     return null;
   }
