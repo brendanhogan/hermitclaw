@@ -328,6 +328,42 @@ def ollama_web_fetch(url: str) -> str:
         return f"Error: {e}"
 
 
+def searxng_search(query: str, max_results: int = 5) -> str:
+    """Search the web using a SearXNG instance."""
+    searxng_url = config.get("searxng_url")
+    if not searxng_url:
+        return "Error: SEARXNG_URL not configured. Set it in config.yaml or SEARXNG_URL env var."
+    try:
+        from urllib.parse import urlencode
+        search_url = f"{searxng_url.rstrip('/')}/search?{urlencode({'q': query, 'format': 'json', 'num_results': max_results})}"
+        headers = {"User-Agent": "HermitClaw/1.0"}
+        api_key = config.get("searxng_api_key")
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+        req = urllib.request.Request(search_url, headers=headers)
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            out = json.loads(resp.read().decode())
+        lines = []
+        for r in out.get("results", [])[:max_results]:
+            title = r.get("title", "")
+            url = r.get("url", "")
+            content = r.get("content", "")[:1000]
+            lines.append(f"**{title}**")
+            lines.append(f"URL: {url}")
+            lines.append(content)
+            lines.append("")
+        return "\n".join(lines).strip()[:8000] or "No results found."
+    except URLError as e:
+        return f"Error: {e.reason}"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def searxng_fetch(url: str) -> str:
+    """Fetch a URL (SearXNG doesn't have fetch, so use generic fetch_url)."""
+    return fetch_url(url)
+
+
 def fetch_url(url: str, max_chars: int = 12000, timeout: int = 15) -> str:
     """Fetch a URL and return its content (for research). Runs in main process, not sandbox."""
     parsed = urlparse(url)
@@ -361,11 +397,18 @@ def execute_tool(name: str, arguments: dict, env_root: str) -> str:
     elif name == "fetch_url":
         return fetch_url(arguments.get("url", ""))
     elif name == "web_search":
+        if config.get("searxng_url"):
+            return searxng_search(
+                arguments.get("query", ""),
+                arguments.get("max_results", 5),
+            )
         return ollama_web_search(
             arguments.get("query", ""),
             arguments.get("max_results", 5),
         )
     elif name == "web_fetch":
+        if config.get("searxng_url"):
+            return searxng_fetch(arguments.get("url", ""))
         return ollama_web_fetch(arguments.get("url", ""))
     else:
         return f"Unknown tool: {name}"

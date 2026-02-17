@@ -413,7 +413,7 @@ def _chat_completions(
     }
     if tools:
         completions_tools = _translate_tools_for_completions(TOOLS)
-        if config.get("ollama_api_key") and config["provider"] == "custom":
+        if config.get("searxng_url") or (config.get("ollama_api_key") and config["provider"] == "custom"):
             ollama_tools = _translate_tools_for_completions(OLLAMA_WEB_TOOLS)
             completions_tools = completions_tools + ollama_tools
         if completions_tools:
