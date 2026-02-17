@@ -171,7 +171,7 @@ def _input_to_messages(input_list: list, instructions: str | None) -> list:
     return messages
 
 
-def chat(input_list: list, tools: bool = True, instructions: str = None, max_tokens: int = 300) -> dict:
+def chat(input_list: list, tools: bool = True, instructions: str = None, max_tokens: int = 2000) -> dict:
     """
     Make one LLM call. Returns:
     {

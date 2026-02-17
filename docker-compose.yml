@@ -5,8 +5,8 @@ services:
     restart: unless-stopped
     environment:
       OPENAI_API_KEY: ${OPENAI_API_KEY}
-      OPENAI_BASE_URL: https://api.z.ai/api/paas/v4/
-      HERMITCLAW_MODEL: ${HERMITCLAW_MODEL:-glm-4.7-flash}
+      OPENAI_BASE_URL: https://api.z.ai/api/coding/paas/v4
+      HERMITCLAW_MODEL: ${HERMITCLAW_MODEL:-glm-4.7}
       BOX_ROOT: /data/boxes
       PORT: 8000
       HERMITCLAW_HEADLESS: "1"
