@@ -726,9 +726,22 @@ class Brain:
             try:
                 response = await asyncio.to_thread(chat, input_list, True, instructions)
             except Exception as e:
-                logger.error(f"LLM follow-up call failed: {e}")
-                await self._emit("error", text=str(e))
-                break
+                # Transient 500s from Ollama/local models — retry once after a short delay
+                if "500" in str(e) or "Internal Server Error" in str(e):
+                    logger.warning(f"LLM returned 500, retrying once: {e}")
+                    await asyncio.sleep(2)
+                    try:
+                        response = await asyncio.to_thread(
+                            chat, input_list, True, instructions
+                        )
+                    except Exception as e2:
+                        logger.error(f"LLM follow-up call failed after retry: {e2}")
+                        await self._emit("error", text=str(e2))
+                        break
+                else:
+                    logger.error(f"LLM follow-up call failed: {e}")
+                    await self._emit("error", text=str(e))
+                    break
 
             await self._emit_api_call(instructions, input_list, response)
 

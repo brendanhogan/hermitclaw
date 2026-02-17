@@ -278,6 +278,8 @@ def _completions_client() -> openai.OpenAI:
     kwargs = {"api_key": api_key}
     if config.get("base_url"):
         kwargs["base_url"] = config["base_url"]
+        # Local/cloud models (Ollama, etc.) can return transient 500s — retry more
+        kwargs["max_retries"] = 5
     return openai.OpenAI(**kwargs)
 
 
