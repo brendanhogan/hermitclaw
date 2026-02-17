@@ -2,6 +2,7 @@
 
 import logging
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -104,12 +105,20 @@ def _rewrite_python_cmd(command: str, env_root: str) -> str | None:
     Returns the rewritten command, or None if it's not a python command.
     """
     stripped = command.strip()
-    if stripped.startswith("python3"):
-        rest = stripped[7:]
-    elif stripped.startswith("python"):
-        rest = stripped[6:]
-    else:
+    if not stripped:
         return None
+
+    # Detect first command token, including absolute/relative paths like:
+    #   python, python3, python3.12, .venv/bin/python, /usr/bin/python3
+    try:
+        first = shlex.split(stripped, posix=True)[0]
+    except (ValueError, IndexError):
+        return None
+    exe = os.path.basename(first)
+    if not re.fullmatch(r"python(?:3(?:\.\d+)?)?", exe):
+        return None
+
+    rest = stripped[len(first):]
     real_root = os.path.realpath(env_root)
     python = _venv_python(env_root) if os.path.isfile(_venv_python(env_root)) else sys.executable
     return f"{shlex.quote(python)} {shlex.quote(_SANDBOX)} {shlex.quote(real_root)}{rest}"

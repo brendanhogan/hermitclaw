@@ -54,7 +54,10 @@ function renderInputItem(item: Record<string, unknown>, phase: Phase): Msg | nul
     return { side: "left", text: content as string, phase };
   }
   if (item.type === "function_call_output") {
-    return { side: "left", text: item.output as string, phase };
+    const output = String(item.output ?? "");
+    const match = output.match(/^They say: "([^"]+)"/);
+    if (match?.[1]) return { side: "left", text: match[1], phase };
+    return null;
   }
   return null;
 }

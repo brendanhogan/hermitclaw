@@ -19,11 +19,76 @@ logger = logging.getLogger("hermitclaw.brain")
 LOG_PATH = os.path.join(os.path.dirname(__file__), "..", "hermitclaw.log.jsonl")
 
 
+def _extract_text_content(content) -> str:
+    """Extract text from content payloads (string or typed part arrays)."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for part in content:
+            if not isinstance(part, dict):
+                continue
+            ptype = part.get("type")
+            if ptype in ("input_text", "text"):
+                parts.append(str(part.get("text", "")))
+        return "\n".join(p for p in parts if p).strip()
+    return ""
+
+
+def _extract_owner_voice(text: str) -> str | None:
+    """Extract user message from the voice framing nudge."""
+    prefix = 'You hear a voice from outside your room say: "'
+    if not text.startswith(prefix):
+        return None
+    rest = text[len(prefix):]
+    end = rest.find('"')
+    if end == -1:
+        return None
+    msg = rest[:end].strip()
+    return msg or None
+
+
+def _extract_user_reply_from_tool_output(text: str) -> str | None:
+    """Extract user reply text from respond tool output."""
+    prefix = 'They say: "'
+    if not text.startswith(prefix):
+        return None
+    rest = text[len(prefix):]
+    end = rest.find('"')
+    if end == -1:
+        return None
+    msg = rest[:end].strip()
+    return msg or None
+
+
 def _serialize_input(input_list: list) -> list:
     """Convert input_list to JSON-safe dicts for broadcasting."""
     result = []
     for item in input_list:
         if isinstance(item, dict):
+            role = item.get("role")
+            item_type = item.get("type")
+
+            # Show only real owner text on the user side; hide internal nudges.
+            if role == "user":
+                text = _extract_text_content(item.get("content"))
+                owner_msg = _extract_owner_voice(text)
+                if owner_msg:
+                    result.append({"role": "user", "content": owner_msg})
+                else:
+                    result.append({"type": "internal_user_prompt"})
+                continue
+
+            # Keep tool-loop plumbing out of chat bubbles; surface only captured human replies.
+            if item_type == "function_call_output":
+                output_text = str(item.get("output", ""))
+                user_reply = _extract_user_reply_from_tool_output(output_text)
+                if user_reply:
+                    result.append({"role": "user", "content": user_reply})
+                else:
+                    result.append({"type": "tool_output"})
+                continue
+
             result.append(item)
         elif hasattr(item, "type"):
             # SDK object — convert based on type
@@ -181,7 +246,7 @@ class Brain:
         self._focus_mode: bool = False
 
         # Conversation state
-        self._user_message: str | None = None
+        self._user_messages: list[str] = []
         self._conversation_event: asyncio.Event = asyncio.Event()
         self._conversation_reply: str | None = None
         self._waiting_for_reply: bool = False
@@ -338,7 +403,7 @@ class Brain:
 
     def receive_user_message(self, text: str):
         """Queue a message from the user to be injected in the next think cycle."""
-        self._user_message = text
+        self._user_messages.append(text)
 
     def receive_conversation_reply(self, text: str):
         """Deliver a reply while the crab is waiting (inside a respond tool call)."""
@@ -464,15 +529,16 @@ class Brain:
             nudge = self._build_continue_nudge()
 
         # If a user message is pending, replace the nudge with the voice framing
-        if self._user_message:
+        has_user_msg = bool(self._user_messages)
+        if has_user_msg:
+            user_msg = self._user_messages.pop(0)
             nudge = (
-                f"You hear a voice from outside your room say: \"{self._user_message}\"\n\n"
+                f"You hear a voice from outside your room say: \"{user_msg}\"\n\n"
                 "You can respond with the respond tool, or just keep doing what you're doing."
             )
-            self._user_message = None
 
         # If inbox files are pending, replace the nudge with an inbox alert
-        if self._inbox_pending:
+        if self._inbox_pending and not has_user_msg:
             parts = []
             names = [f["name"] for f in self._inbox_pending]
             parts.append(
