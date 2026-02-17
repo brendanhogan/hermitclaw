@@ -53,6 +53,12 @@ def load_config() -> dict:
         "ollama_api_key"
     )
 
+    # SearXNG web search (self-hosted alternative to Ollama cloud)
+    config["searxng_url"] = os.environ.get("SEARXNG_URL") or config.get("searxng_url")
+    config["searxng_api_key"] = os.environ.get("SEARXNG_API_KEY") or config.get(
+        "searxng_api_key"
+    )
+
     # Defaults for numeric settings
     config.setdefault("thinking_pace_seconds", 45)
     config.setdefault("max_thoughts_in_context", 20)

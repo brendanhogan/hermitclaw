@@ -1,16 +1,18 @@
 # HermitClaw Configuration
 provider: "openai"              # "openai" | "openrouter" | "custom"
-model: "gpt-4.1"
+model: "gpt-4.1"                # model name
 api_key: null                   # set here or via OPENAI_API_KEY / OPENROUTER_API_KEY env var
 base_url: null                  # auto-set for known providers; required for "custom"
 ollama_api_key: null            # for Ollama cloud web search (minimax:cloud etc.) — OLLAMA_API_KEY env
+searxng_url: null               # self-hosted SearXNG instance (e.g., "https://searx.example.com/")
+searxng_api_key: null           # optional: SEARXNG_API_KEY env
 
-thinking_pace_seconds: 5       # how often it thinks (steady pulse)
-max_thoughts_in_context: 4     # rolling window of recent thoughts
+thinking_pace_seconds: 5        # how often it thinks (steady pulse)
+max_thoughts_in_context: 4      # rolling window of recent thoughts
 
 # Memory stream settings
-reflection_threshold: 50       # accumulated importance before reflecting
-memory_retrieval_count: 3      # how many memories to retrieve per query
+reflection_threshold: 50        # accumulated importance before reflecting
+memory_retrieval_count: 3       # how many memories to retrieve per query
 embedding_model: "text-embedding-3-small"  # for Ollama use: nomic-embed-text
 recency_decay_rate: 0.995      # exponential decay rate for recency scoring
 
