@@ -173,6 +173,22 @@ def _rewrite_python_cmd(command: str, env_root: str) -> str | None:
     )
 
 
+def _rewrite_script_cmd(command: str, env_root: str) -> str | None:
+    """Route ./script.py through sandbox so network etc. is blocked."""
+    stripped = command.strip()
+    if stripped.startswith("./") and stripped.endswith(".py"):
+        script = stripped[2:].split()[0]  # ./foo.py or ./foo.py arg1
+        rest = stripped[2 + len(script) :].strip()  # any args after script
+        python = (
+            _venv_python(env_root)
+            if os.path.isfile(_venv_python(env_root))
+            else sys.executable
+        )
+        real_root = os.path.realpath(env_root)
+        return f"{shlex.quote(python)} {shlex.quote(_SANDBOX)} {shlex.quote(real_root)} {shlex.quote(script)}{' ' + rest if rest else ''}"
+    return None
+
+
 def _rewrite_pip_cmd(command: str, env_root: str) -> str | None:
     """If command is pip/uv pip, rewrite to use the venv. Returns rewritten cmd or None."""
     stripped = command.strip()
@@ -201,6 +217,10 @@ def run_command(command: str, env_root: str) -> str:
     if rewritten is not None:
         command = rewritten
 
+    # Route ./script.py through sandbox (otherwise shebang bypasses pysandbox)
+    script_rewritten = _rewrite_script_cmd(command, env_root)
+    if script_rewritten is not None:
+        command = script_rewritten
     # Route pip/uv pip through the venv
     pip_rewritten = _rewrite_pip_cmd(command, env_root)
     if pip_rewritten is not None:
