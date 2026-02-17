@@ -1,11 +1,17 @@
-"""LLM calls via OpenAI Responses API."""
+"""LLM calls — OpenAI Responses API (default) or Chat Completions (z.ai, etc.)."""
 
 import json
+import os
 import openai
 from hermitclaw.config import config
 
+# If OPENAI_BASE_URL is set, use the Chat Completions API (OpenAI-compatible).
+# Leave it unset to use the native OpenAI Responses API.
+_BASE_URL = os.environ.get("OPENAI_BASE_URL", "").rstrip("/")
+_USE_CHAT_COMPLETIONS = bool(_BASE_URL)
 
-TOOLS = [
+# Core tool definitions (Responses API shape; converted for Chat Completions below).
+_TOOL_DEFS = [
     {
         "type": "function",
         "name": "shell",
@@ -24,9 +30,6 @@ TOOLS = [
             },
             "required": ["command"],
         },
-    },
-    {
-        "type": "web_search_preview",
     },
     {
         "type": "function",
@@ -66,21 +69,126 @@ TOOLS = [
     },
 ]
 
+# Responses API tool list — includes web_search_preview (OpenAI only).
+TOOLS = (
+    [{"type": "web_search_preview"}] + _TOOL_DEFS
+    if not _USE_CHAT_COMPLETIONS
+    else _TOOL_DEFS
+)
+
+
+def _cc_tools() -> list:
+    """Convert tool definitions to Chat Completions format."""
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": t["name"],
+                "description": t.get("description", ""),
+                "parameters": t.get("parameters", {}),
+            },
+        }
+        for t in _TOOL_DEFS
+    ]
+
 
 def _client() -> openai.OpenAI:
-    return openai.OpenAI(api_key=config["api_key"])
+    kwargs: dict = {"api_key": config["api_key"]}
+    if _BASE_URL:
+        kwargs["base_url"] = _BASE_URL
+    return openai.OpenAI(**kwargs)
+
+
+def _input_to_messages(input_list: list, instructions: str | None) -> list:
+    """
+    Translate Responses API-style input_list → Chat Completions messages.
+
+    Handled item shapes:
+      {"role": "user"|"assistant", "content": ...}          plain message
+      {"type": "function_call", "name", "arguments", "call_id"}   tool call (from output)
+      {"type": "function_call_output", "call_id", "output"}       tool result (from brain)
+      {"type": "message", "role", "content"}                 serialised message
+    """
+    messages = []
+    if instructions:
+        messages.append({"role": "system", "content": instructions})
+
+    i = 0
+    while i < len(input_list):
+        item = input_list[i]
+
+        if not isinstance(item, dict):
+            # Raw SDK object — skip; shouldn't appear in Chat Completions mode.
+            i += 1
+            continue
+
+        t = item.get("type")
+        role = item.get("role")
+
+        if role in ("user", "assistant") and t is None:
+            messages.append({"role": role, "content": item.get("content", "")})
+            i += 1
+
+        elif t == "function_call":
+            # Batch consecutive function_call items into one assistant message.
+            tool_calls = []
+            while i < len(input_list):
+                it = input_list[i]
+                if isinstance(it, dict) and it.get("type") == "function_call":
+                    tool_calls.append({
+                        "id": it["call_id"],
+                        "type": "function",
+                        "function": {
+                            "name": it["name"],
+                            "arguments": it.get("arguments", "{}"),
+                        },
+                    })
+                    i += 1
+                else:
+                    break
+            messages.append({"role": "assistant", "content": None, "tool_calls": tool_calls})
+
+        elif t == "function_call_output":
+            messages.append({
+                "role": "tool",
+                "tool_call_id": item["call_id"],
+                "content": str(item.get("output", "")),
+            })
+            i += 1
+
+        elif t == "message":
+            content = item.get("content", "")
+            if isinstance(content, list):
+                content = " ".join(
+                    c.get("text", "") for c in content if isinstance(c, dict)
+                )
+            messages.append({"role": item.get("role", "assistant"), "content": content})
+            i += 1
+
+        else:
+            i += 1
+
+    return messages
 
 
 def chat(input_list: list, tools: bool = True, instructions: str = None, max_tokens: int = 300) -> dict:
     """
-    Make one Responses API call. Returns:
+    Make one LLM call. Returns:
     {
         "text": str or None,
         "tool_calls": [{"name": str, "arguments": dict, "call_id": str}],
-        "output": list,   # raw output items (for appending back to input)
+        "output": list,   # items to append back to input_list in brain.py
     }
     """
-    kwargs = {
+    client = _client()
+    if _USE_CHAT_COMPLETIONS:
+        return _chat_completions(client, input_list, tools, instructions, max_tokens)
+    return _responses_api(client, input_list, tools, instructions, max_tokens)
+
+
+def _responses_api(client, input_list, tools, instructions, max_tokens) -> dict:
+    """Original OpenAI Responses API path."""
+    kwargs: dict = {
         "model": config["model"],
         "input": input_list,
         "max_output_tokens": max_tokens,
@@ -90,9 +198,8 @@ def chat(input_list: list, tools: bool = True, instructions: str = None, max_tok
     if tools:
         kwargs["tools"] = TOOLS
 
-    response = _client().responses.create(**kwargs)
+    response = client.responses.create(**kwargs)
 
-    # Parse output items
     text_parts = []
     tool_calls = []
     for item in response.output:
@@ -114,17 +221,64 @@ def chat(input_list: list, tools: bool = True, instructions: str = None, max_tok
     }
 
 
+def _chat_completions(client, input_list, tools, instructions, max_tokens) -> dict:
+    """Chat Completions path — works with z.ai, any OpenAI-compatible provider."""
+    messages = _input_to_messages(input_list, instructions)
+
+    kwargs: dict = {
+        "model": config["model"],
+        "messages": messages,
+        "max_tokens": max_tokens,
+    }
+    if tools:
+        kwargs["tools"] = _cc_tools()
+        kwargs["tool_choice"] = "auto"
+
+    response = client.chat.completions.create(**kwargs)
+    msg = response.choices[0].message
+
+    text = msg.content or None
+    tool_calls = []
+    output: list = []
+
+    if msg.tool_calls:
+        for tc in msg.tool_calls:
+            try:
+                args = json.loads(tc.function.arguments)
+            except (json.JSONDecodeError, TypeError):
+                args = {}
+            tool_calls.append({
+                "name": tc.function.name,
+                "arguments": args,
+                "call_id": tc.id,
+            })
+            # Serialise as dict so brain.py can append it to input_list.
+            output.append({
+                "type": "function_call",
+                "name": tc.function.name,
+                "arguments": tc.function.arguments,
+                "call_id": tc.id,
+            })
+    else:
+        if text:
+            output = [{"type": "message", "role": "assistant", "content": text}]
+
+    return {
+        "text": text,
+        "tool_calls": tool_calls,
+        "output": output,
+    }
+
+
 def embed(text: str) -> list[float]:
     """Get an embedding vector for a text string."""
-    from hermitclaw.config import config as cfg
-    response = _client().embeddings.create(
-        model=cfg.get("embedding_model", "text-embedding-3-small"),
-        input=text,
-    )
+    client = _client()
+    model = config.get("embedding_model", "text-embedding-3-small")
+    response = client.embeddings.create(model=model, input=text)
     return response.data[0].embedding
 
 
 def chat_short(input_list: list, instructions: str = None) -> str:
-    """Short LLM call (for importance scoring, reflections) — just returns text, no tools."""
+    """Short LLM call (no tools) — just returns text."""
     result = chat(input_list, tools=False, instructions=instructions)
     return result["text"] or ""
