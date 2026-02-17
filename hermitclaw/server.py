@@ -48,6 +48,7 @@ app.add_middleware(
 
 # --- WebSocket ---
 
+
 @app.websocket("/ws/{crab_id}")
 async def websocket_endpoint(ws: WebSocket, crab_id: str):
     brain = brains.get(crab_id)
@@ -84,6 +85,7 @@ async def websocket_default(ws: WebSocket):
 
 
 # --- REST API ---
+
 
 @app.get("/api/crabs")
 async def get_crabs():
@@ -148,16 +150,19 @@ async def get_identity(request: Request):
     brain = _get_brain(request)
     return brain.identity
 
+
 @app.get("/api/events")
 async def get_events(request: Request, limit: int = 100):
     brain = _get_brain(request)
     return brain.events[-limit:]
+
 
 @app.get("/api/raw")
 async def get_raw(request: Request, limit: int = 20):
     """Get raw API call history."""
     brain = _get_brain(request)
     return brain.api_calls[-limit:]
+
 
 @app.get("/api/status")
 async def get_status(request: Request):
@@ -174,6 +179,7 @@ async def get_status(request: Request):
         "focus_mode": brain._focus_mode,
     }
 
+
 @app.post("/api/focus-mode")
 async def post_focus_mode(request: Request):
     """Toggle focus mode on or off."""
@@ -182,6 +188,7 @@ async def post_focus_mode(request: Request):
     enabled = bool(body.get("enabled", False))
     await brain.set_focus_mode(enabled)
     return {"ok": True, "focus_mode": enabled}
+
 
 @app.post("/api/message")
 async def post_message(request: Request):
@@ -197,6 +204,7 @@ async def post_message(request: Request):
         brain.receive_user_message(text)
     return {"ok": True}
 
+
 @app.post("/api/snapshot")
 async def post_snapshot(request: Request):
     """Receive a canvas snapshot from the frontend."""
@@ -204,6 +212,7 @@ async def post_snapshot(request: Request):
     body = await request.json()
     brain.latest_snapshot = body.get("image")
     return {"ok": True}
+
 
 @app.get("/api/files")
 async def get_files(request: Request):
@@ -218,6 +227,7 @@ async def get_files(request: Request):
                 files.append(rel)
     files.sort()
     return {"files": files}
+
 
 @app.get("/api/files/{path:path}")
 async def get_file(request: Request, path: str):
@@ -237,7 +247,11 @@ async def get_file(request: Request, path: str):
 
 frontend_dist = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
 if os.path.isdir(frontend_dist):
-    app.mount("/assets", StaticFiles(directory=os.path.join(frontend_dist, "assets")), name="assets")
+    app.mount(
+        "/assets",
+        StaticFiles(directory=os.path.join(frontend_dist, "assets")),
+        name="assets",
+    )
 
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):
@@ -249,6 +263,7 @@ if os.path.isdir(frontend_dist):
 
 # --- Startup ---
 
+
 @app.on_event("startup")
 async def startup():
     async def _start_brains():
@@ -257,4 +272,5 @@ async def startup():
         for crab_id, brain in brains.items():
             asyncio.create_task(brain.run())
             logger.info(f"{brain.identity['name']} ({crab_id}) starting...")
+
     asyncio.create_task(_start_brains())

@@ -41,7 +41,10 @@ TOOLS = [
         "parameters": {
             "type": "object",
             "properties": {
-                "message": {"type": "string", "description": "What you say back to them"}
+                "message": {
+                    "type": "string",
+                    "description": "What you say back to them",
+                }
             },
             "required": ["message"],
         },
@@ -59,7 +62,15 @@ TOOLS = [
             "properties": {
                 "location": {
                     "type": "string",
-                    "enum": ["desk", "bookshelf", "window", "plant", "bed", "rug", "center"],
+                    "enum": [
+                        "desk",
+                        "bookshelf",
+                        "window",
+                        "plant",
+                        "bed",
+                        "rug",
+                        "center",
+                    ],
                 }
             },
             "required": ["location"],
@@ -78,18 +89,22 @@ def _translate_tools_for_completions(tools: list[dict]) -> list[dict]:
     for tool in tools:
         if tool.get("type") != "function":
             continue
-        result.append({
-            "type": "function",
-            "function": {
-                "name": tool["name"],
-                "description": tool.get("description", ""),
-                "parameters": tool.get("parameters", {}),
-            },
-        })
+        result.append(
+            {
+                "type": "function",
+                "function": {
+                    "name": tool["name"],
+                    "description": tool.get("description", ""),
+                    "parameters": tool.get("parameters", {}),
+                },
+            }
+        )
     return result
 
 
-def _translate_input_to_messages(input_list: list, instructions: str | None) -> list[dict]:
+def _translate_input_to_messages(
+    input_list: list, instructions: str | None
+) -> list[dict]:
     """Convert a Responses API input_list to Chat Completions messages.
 
     Handles:
@@ -108,11 +123,13 @@ def _translate_input_to_messages(input_list: list, instructions: str | None) -> 
             continue
 
         if item.get("type") == "function_call_output":
-            messages.append({
-                "role": "tool",
-                "tool_call_id": item["call_id"],
-                "content": item.get("output", ""),
-            })
+            messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": item["call_id"],
+                    "content": item.get("output", ""),
+                }
+            )
         elif "role" in item:
             content = item.get("content")
             if isinstance(content, list):
@@ -129,7 +146,9 @@ def _translate_multimodal(content_parts: list[dict]) -> list[dict]:
         if not isinstance(part, dict):
             continue
         if part.get("type") == "input_image":
-            result.append({"type": "image_url", "image_url": {"url": part["image_url"]}})
+            result.append(
+                {"type": "image_url", "image_url": {"url": part["image_url"]}}
+            )
         elif part.get("type") == "input_text":
             result.append({"type": "text", "text": part["text"]})
         else:
@@ -150,28 +169,32 @@ def _normalize_completions_response(response) -> dict:
 
     if message.tool_calls:
         for tc in message.tool_calls:
-            tool_calls.append({
-                "name": tc.function.name,
-                "arguments": json.loads(tc.function.arguments),
-                "call_id": tc.id,
-            })
+            tool_calls.append(
+                {
+                    "name": tc.function.name,
+                    "arguments": json.loads(tc.function.arguments),
+                    "call_id": tc.id,
+                }
+            )
 
         # Build a synthetic assistant message for brain.py's input_list
-        output.append({
-            "role": "assistant",
-            "content": text,
-            "tool_calls": [
-                {
-                    "id": tc.id,
-                    "type": "function",
-                    "function": {
-                        "name": tc.function.name,
-                        "arguments": tc.function.arguments,
-                    },
-                }
-                for tc in message.tool_calls
-            ],
-        })
+        output.append(
+            {
+                "role": "assistant",
+                "content": text,
+                "tool_calls": [
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments,
+                        },
+                    }
+                    for tc in message.tool_calls
+                ],
+            }
+        )
 
     return {"text": text, "tool_calls": tool_calls, "output": output}
 
@@ -193,7 +216,12 @@ def _completions_client() -> openai.OpenAI:
     return openai.OpenAI(**kwargs)
 
 
-def _chat_responses(input_list: list, tools: bool = True, instructions: str = None, max_tokens: int = 300) -> dict:
+def _chat_responses(
+    input_list: list,
+    tools: bool = True,
+    instructions: str = None,
+    max_tokens: int = 300,
+) -> dict:
     """
     Make one Responses API call. Returns:
     {
@@ -223,11 +251,13 @@ def _chat_responses(input_list: list, tools: bool = True, instructions: str = No
                 if hasattr(content, "text"):
                     text_parts.append(content.text)
         elif item.type == "function_call":
-            tool_calls.append({
-                "name": item.name,
-                "arguments": json.loads(item.arguments),
-                "call_id": item.call_id,
-            })
+            tool_calls.append(
+                {
+                    "name": item.name,
+                    "arguments": json.loads(item.arguments),
+                    "call_id": item.call_id,
+                }
+            )
 
     return {
         "text": "\n".join(text_parts) if text_parts else None,
@@ -236,7 +266,12 @@ def _chat_responses(input_list: list, tools: bool = True, instructions: str = No
     }
 
 
-def _chat_completions(input_list: list, tools: bool = True, instructions: str = None, max_tokens: int = 300) -> dict:
+def _chat_completions(
+    input_list: list,
+    tools: bool = True,
+    instructions: str = None,
+    max_tokens: int = 300,
+) -> dict:
     """Make a Chat Completions API call. Same return format as _chat_responses."""
     messages = _translate_input_to_messages(input_list, instructions)
 
@@ -254,7 +289,12 @@ def _chat_completions(input_list: list, tools: bool = True, instructions: str = 
     return _normalize_completions_response(response)
 
 
-def chat(input_list: list, tools: bool = True, instructions: str = None, max_tokens: int = 300) -> dict:
+def chat(
+    input_list: list,
+    tools: bool = True,
+    instructions: str = None,
+    max_tokens: int = 300,
+) -> dict:
     """Make an LLM call. Routes to Responses API or Chat Completions based on provider config.
 
     Returns:
@@ -276,6 +316,7 @@ def embed(text: str) -> list[float]:
     if the provider doesn't support embeddings (requires OPENAI_API_KEY).
     """
     from hermitclaw.config import config as cfg
+
     model = cfg.get("embedding_model", "text-embedding-3-small")
 
     # Try configured provider first

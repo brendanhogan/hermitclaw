@@ -11,13 +11,41 @@ logger = logging.getLogger("hermitclaw.tools")
 
 # Commands that should never be run (checked as prefixes after stripping)
 BLOCKED_PREFIXES = [
-    "sudo", "su ", "rm -rf /", "chmod", "chown", "kill", "pkill",
-    "curl", "wget", "nc ", "ncat", "ssh", "scp", "sftp",
-    "node", "ruby", "perl", "bash", "sh ", "zsh",
-    "export", "source", "eval", "exec",
-    "mount", "umount", "dd ", "mkfs", "fdisk",
-    "apt", "brew", "npm", "yarn",
-    "open ", "xdg-open",
+    "sudo",
+    "su ",
+    "rm -rf /",
+    "chmod",
+    "chown",
+    "kill",
+    "pkill",
+    "curl",
+    "wget",
+    "nc ",
+    "ncat",
+    "ssh",
+    "scp",
+    "sftp",
+    "node",
+    "ruby",
+    "perl",
+    "bash",
+    "sh ",
+    "zsh",
+    "export",
+    "source",
+    "eval",
+    "exec",
+    "mount",
+    "umount",
+    "dd ",
+    "mkfs",
+    "fdisk",
+    "apt",
+    "brew",
+    "npm",
+    "yarn",
+    "open ",
+    "xdg-open",
 ]
 
 # Path to the Python sandbox wrapper
@@ -47,11 +75,15 @@ def ensure_venv(env_root: str):
     logger.info(f"Creating crab venv at {venv}...")
     uv = shutil.which("uv")
     if uv:
-        subprocess.run([uv, "venv", venv, "--python", sys.executable],
-                       capture_output=True, timeout=30)
+        subprocess.run(
+            [uv, "venv", venv, "--python", sys.executable],
+            capture_output=True,
+            timeout=30,
+        )
     else:
-        subprocess.run([sys.executable, "-m", "venv", venv],
-                       capture_output=True, timeout=30)
+        subprocess.run(
+            [sys.executable, "-m", "venv", venv], capture_output=True, timeout=30
+        )
     logger.info("Crab venv created.")
 
 
@@ -89,6 +121,7 @@ def _is_safe_command(command: str) -> str | None:
     # Only flag tokens where / is followed by a word char (actual paths like /usr/bin),
     # not markup like /> or /' or /" which appear in XML/HTML/SVG content.
     import re
+
     for token in stripped.split():
         clean = token.lstrip("><=|;&(")
         if re.match(r"/[A-Za-z0-9_]", clean) and not clean.startswith("/dev/null"):
@@ -111,8 +144,14 @@ def _rewrite_python_cmd(command: str, env_root: str) -> str | None:
     else:
         return None
     real_root = os.path.realpath(env_root)
-    python = _venv_python(env_root) if os.path.isfile(_venv_python(env_root)) else sys.executable
-    return f"{shlex.quote(python)} {shlex.quote(_SANDBOX)} {shlex.quote(real_root)}{rest}"
+    python = (
+        _venv_python(env_root)
+        if os.path.isfile(_venv_python(env_root))
+        else sys.executable
+    )
+    return (
+        f"{shlex.quote(python)} {shlex.quote(_SANDBOX)} {shlex.quote(real_root)}{rest}"
+    )
 
 
 def _rewrite_pip_cmd(command: str, env_root: str) -> str | None:

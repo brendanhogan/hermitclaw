@@ -10,7 +10,12 @@ from datetime import datetime, date
 
 from hermitclaw.config import config
 from hermitclaw.memory import MemoryStream
-from hermitclaw.prompts import main_system_prompt, REFLECTION_PROMPT, PLANNING_PROMPT, FOCUS_NUDGE
+from hermitclaw.prompts import (
+    main_system_prompt,
+    REFLECTION_PROMPT,
+    PLANNING_PROMPT,
+    FOCUS_NUDGE,
+)
 from hermitclaw.providers import chat, chat_short
 from hermitclaw.tools import execute_tool, ensure_venv
 
@@ -28,22 +33,26 @@ def _serialize_input(input_list: list) -> list:
         elif hasattr(item, "type"):
             # SDK object — convert based on type
             if item.type == "function_call":
-                result.append({
-                    "type": "function_call",
-                    "name": item.name,
-                    "arguments": item.arguments,
-                    "call_id": item.call_id,
-                })
+                result.append(
+                    {
+                        "type": "function_call",
+                        "name": item.name,
+                        "arguments": item.arguments,
+                        "call_id": item.call_id,
+                    }
+                )
             elif item.type == "message":
                 parts = []
                 for c in item.content:
                     if hasattr(c, "text"):
                         parts.append(c.text)
-                result.append({
-                    "type": "message",
-                    "role": getattr(item, "role", "assistant"),
-                    "content": " ".join(parts),
-                })
+                result.append(
+                    {
+                        "type": "message",
+                        "role": getattr(item, "role", "assistant"),
+                        "content": " ".join(parts),
+                    }
+                )
             elif item.type == "web_search_call":
                 result.append({"type": "web_search_call"})
             else:
@@ -67,12 +76,14 @@ def _serialize_output(output) -> list:
                         content_parts.append({"type": getattr(c, "type", "unknown")})
                 items.append({"type": "message", "content": content_parts})
             elif item.type == "function_call":
-                items.append({
-                    "type": "function_call",
-                    "name": item.name,
-                    "arguments": item.arguments,
-                    "call_id": item.call_id,
-                })
+                items.append(
+                    {
+                        "type": "function_call",
+                        "name": item.name,
+                        "arguments": item.arguments,
+                        "call_id": item.call_id,
+                    }
+                )
             elif item.type == "web_search_call":
                 items.append({"type": "web_search_call", "id": getattr(item, "id", "")})
             else:
@@ -124,8 +135,22 @@ class Brain:
         return b
 
     # File extensions we can read as text
-    _TEXT_EXTS = {".txt", ".md", ".py", ".json", ".csv", ".yaml", ".yml",
-                  ".toml", ".js", ".ts", ".html", ".css", ".sh", ".log"}
+    _TEXT_EXTS = {
+        ".txt",
+        ".md",
+        ".py",
+        ".json",
+        ".csv",
+        ".yaml",
+        ".yml",
+        ".toml",
+        ".js",
+        ".ts",
+        ".html",
+        ".css",
+        ".sh",
+        ".log",
+    }
     _PDF_EXTS = {".pdf"}
     _IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
     # Internal files the crab/system manages — never trigger alerts
@@ -241,9 +266,14 @@ class Brain:
         text = data.get("text", data.get("command", data.get("content", "")))
         logger.info(f"[{event_type}] {str(text)[:120]}")
 
-    async def _emit_api_call(self, instructions: str, input_list: list,
-                             response: dict, is_reflection: bool = False,
-                             is_planning: bool = False):
+    async def _emit_api_call(
+        self,
+        instructions: str,
+        input_list: list,
+        response: dict,
+        is_reflection: bool = False,
+        is_planning: bool = False,
+    ):
         entry = {
             "timestamp": datetime.now().isoformat(),
             "instructions": instructions,
@@ -295,10 +325,12 @@ class Brain:
         self._conversation_event.clear()
         self._conversation_reply = None
 
-        await self._broadcast({
-            "event": "conversation",
-            "data": {"state": "waiting", "message": msg, "timeout": 15},
-        })
+        await self._broadcast(
+            {
+                "event": "conversation",
+                "data": {"state": "waiting", "message": msg, "timeout": 15},
+            }
+        )
 
         try:
             await asyncio.wait_for(self._conversation_event.wait(), timeout=15)
@@ -311,10 +343,12 @@ class Brain:
         self._conversation_event.clear()
         self._conversation_reply = None
 
-        await self._broadcast({
-            "event": "conversation",
-            "data": {"state": "ended"},
-        })
+        await self._broadcast(
+            {
+                "event": "conversation",
+                "data": {"state": "ended"},
+            }
+        )
 
         return reply
 
@@ -363,15 +397,20 @@ class Brain:
             if ext in Brain._PDF_EXTS:
                 try:
                     import pymupdf
+
                     doc = pymupdf.open(fpath)
                     pages = []
                     for page in doc:
                         pages.append(page.get_text())
                     doc.close()
                     text = "\n\n".join(pages)
-                    entry["content"] = text[:4000] if text.strip() else "(PDF has no extractable text)"
+                    entry["content"] = (
+                        text[:4000] if text.strip() else "(PDF has no extractable text)"
+                    )
                 except ImportError:
-                    entry["content"] = "(install pymupdf to read PDFs: pip install pymupdf)"
+                    entry["content"] = (
+                        "(install pymupdf to read PDFs: pip install pymupdf)"
+                    )
                 except Exception:
                     entry["content"] = "(could not read PDF)"
             elif ext in Brain._TEXT_EXTS:
@@ -383,8 +422,18 @@ class Brain:
             elif ext in Brain._IMAGE_EXTS:
                 try:
                     data = open(fpath, "rb").read()
-                    mime = "image/png" if ext == ".png" else "image/jpeg" if ext in (".jpg", ".jpeg") else "image/gif" if ext == ".gif" else "image/webp"
-                    entry["image"] = f"data:{mime};base64,{base64.b64encode(data).decode()}"
+                    mime = (
+                        "image/png"
+                        if ext == ".png"
+                        else (
+                            "image/jpeg"
+                            if ext in (".jpg", ".jpeg")
+                            else "image/gif" if ext == ".gif" else "image/webp"
+                        )
+                    )
+                    entry["image"] = (
+                        f"data:{mime};base64,{base64.b64encode(data).decode()}"
+                    )
                 except Exception:
                     entry["content"] = "(could not read image)"
             else:
@@ -427,16 +476,27 @@ class Brain:
         instructions = main_system_prompt(self.identity, self._current_focus)
 
         input_list = []
-        recent = [e for e in self.events if e["type"] in ("thought", "tool_call", "reflection")]
-        recent = recent[-config["max_thoughts_in_context"]:]
+        recent = [
+            e
+            for e in self.events
+            if e["type"] in ("thought", "tool_call", "reflection")
+        ]
+        recent = recent[-config["max_thoughts_in_context"] :]
 
         for ev in recent:
             if ev["type"] == "thought":
                 input_list.append({"role": "assistant", "content": ev["text"]})
             elif ev["type"] == "tool_call":
-                input_list.append({"role": "assistant", "content": f"[Used {ev['tool']} tool]"})
+                input_list.append(
+                    {"role": "assistant", "content": f"[Used {ev['tool']} tool]"}
+                )
             elif ev["type"] == "reflection":
-                input_list.append({"role": "assistant", "content": f"[Reflection: {ev['text'][:200]}...]"})
+                input_list.append(
+                    {
+                        "role": "assistant",
+                        "content": f"[Reflection: {ev['text'][:200]}...]",
+                    }
+                )
 
         if self.thought_count == 0 and not recent:
             # --- Wake up: read own files + retrieve memories ---
@@ -448,7 +508,7 @@ class Brain:
         # If a user message is pending, replace the nudge with the voice framing
         if self._user_message:
             nudge = (
-                f"You hear a voice from outside your room say: \"{self._user_message}\"\n\n"
+                f'You hear a voice from outside your room say: "{self._user_message}"\n\n'
                 "You can respond with the respond tool, or just keep doing what you're doing."
             )
             self._user_message = None
@@ -479,21 +539,34 @@ class Brain:
             content_parts: list[dict] = []
             for f in self._inbox_pending:
                 if f["image"]:
-                    content_parts.append({"type": "input_image", "image_url": f["image"]})
+                    content_parts.append(
+                        {"type": "input_image", "image_url": f["image"]}
+                    )
             content_parts.append({"type": "input_text", "text": nudge})
-            input_list.append({"role": "user", "content": content_parts if len(content_parts) > 1 else nudge})
+            input_list.append(
+                {
+                    "role": "user",
+                    "content": content_parts if len(content_parts) > 1 else nudge,
+                }
+            )
             # Reset plan counter so the crab has time to work on the file
             self._cycles_since_plan = 0
             self._inbox_pending = []
         # Include room snapshot on wake-up only (first think cycle)
         elif self.thought_count == 0 and self.latest_snapshot:
-            input_list.append({
-                "role": "user",
-                "content": [
-                    {"type": "input_image", "image_url": self.latest_snapshot},
-                    {"type": "input_text", "text": nudge + "\n\n(Above: a picture of your room right now.)"},
-                ],
-            })
+            input_list.append(
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "input_image", "image_url": self.latest_snapshot},
+                        {
+                            "type": "input_text",
+                            "text": nudge
+                            + "\n\n(Above: a picture of your room right now.)",
+                        },
+                    ],
+                }
+            )
         else:
             input_list.append({"role": "user", "content": nudge})
 
@@ -508,7 +581,9 @@ class Brain:
         if projects:
             parts.append(f"**Your projects (projects.md):**\n{projects[:1500]}")
         else:
-            parts.append("**No projects.md yet.** Create one to track what you're working on!")
+            parts.append(
+                "**No projects.md yet.** Create one to track what you're working on!"
+            )
 
         # List files
         files = self._list_env_files()
@@ -517,12 +592,16 @@ class Brain:
             parts.append(f"**Files in your world:**\n{listing}")
 
         # Retrieve memories
-        memories = self.stream.retrieve("what was I working on and thinking about", top_k=5)
+        memories = self.stream.retrieve(
+            "what was I working on and thinking about", top_k=5
+        )
         if memories:
             mem_text = "\n".join(f"- {m['content']}" for m in memories)
             parts.append(f"**Memories from before:**\n{mem_text}")
 
-        parts.append("\nCheck your projects. Pick up where you left off, or start something new.")
+        parts.append(
+            "\nCheck your projects. Pick up where you left off, or start something new."
+        )
         return "\n\n".join(parts)
 
     def _build_continue_nudge(self) -> str:
@@ -546,8 +625,12 @@ class Brain:
             memories = self.stream.retrieve(last_thought, top_k=3)
             if memories:
                 now = datetime.now()
-                older = [m for m in memories
-                         if (now - datetime.fromisoformat(m["timestamp"])).total_seconds() > 30]
+                older = [
+                    m
+                    for m in memories
+                    if (now - datetime.fromisoformat(m["timestamp"])).total_seconds()
+                    > 30
+                ]
                 if older:
                     mem_text = "\n".join(f"- {m['content']}" for m in older)
                     parts.append(f"Related memories:\n{mem_text}")
@@ -560,7 +643,12 @@ class Brain:
 
     async def _think_once(self):
         self.state = "thinking"
-        await self._broadcast({"event": "status", "data": {"state": "thinking", "thought_count": self.thought_count}})
+        await self._broadcast(
+            {
+                "event": "status",
+                "data": {"state": "thinking", "thought_count": self.thought_count},
+            }
+        )
 
         instructions, input_list = self._build_input()
 
@@ -574,8 +662,16 @@ class Brain:
         await self._emit_api_call(instructions, input_list, response)
 
         # Detect web search in response output
-        if any(hasattr(item, "type") and item.type == "web_search_call" for item in response.get("output", [])):
-            await self._broadcast({"event": "activity", "data": {"type": "searching", "detail": "Searching the web..."}})
+        if any(
+            hasattr(item, "type") and item.type == "web_search_call"
+            for item in response.get("output", [])
+        ):
+            await self._broadcast(
+                {
+                    "event": "activity",
+                    "data": {"type": "searching", "detail": "Searching the web..."},
+                }
+            )
 
         while response["tool_calls"]:
             if response.get("text"):
@@ -602,22 +698,28 @@ class Brain:
                     elif tool_name == "respond":
                         result = await self._handle_respond(tool_args)
                     else:
-                        result = await asyncio.to_thread(execute_tool, tool_name, tool_args, self.env_path)
+                        result = await asyncio.to_thread(
+                            execute_tool, tool_name, tool_args, self.env_path
+                        )
                 except Exception as e:
                     result = f"Error: {e}"
 
-                await self._broadcast({"event": "activity", "data": {"type": "idle", "detail": ""}})
+                await self._broadcast(
+                    {"event": "activity", "data": {"type": "idle", "detail": ""}}
+                )
                 await self._emit("tool_result", tool=tool_name, output=result)
 
                 # Only mark files the crab created (not user-dropped files)
                 post_tool_files = self._scan_env_files()
-                self._seen_env_files |= (post_tool_files - pre_tool_files)
+                self._seen_env_files |= post_tool_files - pre_tool_files
 
-                input_list.append({
-                    "type": "function_call_output",
-                    "call_id": call_id,
-                    "output": result,
-                })
+                input_list.append(
+                    {
+                        "type": "function_call_output",
+                        "call_id": call_id,
+                        "output": result,
+                    }
+                )
 
             try:
                 response = await asyncio.to_thread(chat, input_list, True, instructions)
@@ -629,8 +731,16 @@ class Brain:
             await self._emit_api_call(instructions, input_list, response)
 
             # Detect web search in follow-up response
-            if any(hasattr(item, "type") and item.type == "web_search_call" for item in response.get("output", [])):
-                await self._broadcast({"event": "activity", "data": {"type": "searching", "detail": "Searching the web..."}})
+            if any(
+                hasattr(item, "type") and item.type == "web_search_call"
+                for item in response.get("output", [])
+            ):
+                await self._broadcast(
+                    {
+                        "event": "activity",
+                        "data": {"type": "searching", "detail": "Searching the web..."},
+                    }
+                )
 
         if response.get("text"):
             self.thought_count += 1
@@ -638,9 +748,7 @@ class Brain:
 
             # Store in memory stream (runs embedding + importance scoring in background)
             try:
-                await asyncio.to_thread(
-                    self.stream.add, response["text"], "thought"
-                )
+                await asyncio.to_thread(self.stream.add, response["text"], "thought")
             except Exception as e:
                 logger.error(f"Memory add failed: {e}")
 
@@ -649,7 +757,12 @@ class Brain:
     async def _reflect(self):
         """Reflection cycle — triggered by accumulated importance."""
         self.state = "reflecting"
-        await self._broadcast({"event": "status", "data": {"state": "reflecting", "thought_count": self.thought_count}})
+        await self._broadcast(
+            {
+                "event": "status",
+                "data": {"state": "reflecting", "thought_count": self.thought_count},
+            }
+        )
         await self._emit("reflection_start")
 
         # Gather recent memories for reflection
@@ -663,12 +776,16 @@ class Brain:
             for m in recent_memories
         )
 
-        reflect_input = [{"role": "user", "content": f"Your recent memories:\n\n{memories_text}"}]
+        reflect_input = [
+            {"role": "user", "content": f"Your recent memories:\n\n{memories_text}"}
+        ]
         try:
             reflect_response = await asyncio.to_thread(
                 chat, reflect_input, False, REFLECTION_PROMPT
             )
-            await self._emit_api_call(REFLECTION_PROMPT, reflect_input, reflect_response, is_reflection=True)
+            await self._emit_api_call(
+                REFLECTION_PROMPT, reflect_input, reflect_response, is_reflection=True
+            )
             reflection_text = reflect_response["text"] or ""
         except Exception as e:
             logger.error(f"Reflection failed: {e}")
@@ -678,7 +795,9 @@ class Brain:
 
         # Store each insight as a reflection memory
         source_ids = [m["id"] for m in recent_memories]
-        insights = [line.strip() for line in reflection_text.split("\n") if line.strip()]
+        insights = [
+            line.strip() for line in reflection_text.split("\n") if line.strip()
+        ]
 
         for insight in insights:
             try:
@@ -696,17 +815,27 @@ class Brain:
     async def _plan(self):
         """Planning phase — review state, set goals, update projects.md."""
         self.state = "planning"
-        await self._broadcast({"event": "status", "data": {"state": "planning", "thought_count": self.thought_count}})
+        await self._broadcast(
+            {
+                "event": "status",
+                "data": {"state": "planning", "thought_count": self.thought_count},
+            }
+        )
 
         # Gather current state for the planner
         projects = self._read_file("projects.md") or "(no projects.md yet)"
         files = self._list_env_files()
         recent_memories = self.stream.get_recent(n=10)
-        memories_text = "\n".join(
-            f"- {m['content']}" for m in recent_memories
-        ) if recent_memories else "(none yet)"
+        memories_text = (
+            "\n".join(f"- {m['content']}" for m in recent_memories)
+            if recent_memories
+            else "(none yet)"
+        )
 
-        plan_input = [{"role": "user", "content": f"""Time to plan. Here's your current state:
+        plan_input = [
+            {
+                "role": "user",
+                "content": f"""Time to plan. Here's your current state:
 
 ## Current projects.md:
 {projects[:2000]}
@@ -715,13 +844,17 @@ class Brain:
 {chr(10).join(files[:30]) if files else '(empty)'}
 
 ## Recent thoughts:
-{memories_text}"""}]
+{memories_text}""",
+            }
+        ]
 
         try:
             plan_response = await asyncio.to_thread(
                 chat, plan_input, False, PLANNING_PROMPT
             )
-            await self._emit_api_call(PLANNING_PROMPT, plan_input, plan_response, is_planning=True)
+            await self._emit_api_call(
+                PLANNING_PROMPT, plan_input, plan_response, is_planning=True
+            )
             plan_text = plan_response["text"] or ""
         except Exception as e:
             logger.error(f"Planning failed: {e}")
@@ -737,7 +870,7 @@ class Brain:
         if "LOG:" in plan_text:
             idx = plan_text.index("LOG:")
             plan_body = plan_text[:idx].strip()
-            log_entry = plan_text[idx + 4:].strip()
+            log_entry = plan_text[idx + 4 :].strip()
 
         # Write projects.md
         env_root = self.env_path
@@ -781,8 +914,7 @@ class Brain:
         # (PDFs, images, etc.) as unseen so they trigger inbox alerts on first cycle
         all_files = self._scan_env_files()
         self._seen_env_files = {
-            f for f in all_files
-            if os.sep in f or f in Brain._INTERNAL_ROOT_FILES
+            f for f in all_files if os.sep in f or f in Brain._INTERNAL_ROOT_FILES
         }
         self._current_focus = self._load_current_focus()
 
@@ -806,7 +938,12 @@ class Brain:
                 await self._plan()
 
             self.state = "idle"
-            await self._broadcast({"event": "status", "data": {"state": "idle", "thought_count": self.thought_count}})
+            await self._broadcast(
+                {
+                    "event": "status",
+                    "data": {"state": "idle", "thought_count": self.thought_count},
+                }
+            )
             await self._idle_wander()
             await asyncio.sleep(config["thinking_pace_seconds"])
 

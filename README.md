@@ -28,9 +28,29 @@ There's something fascinating about watching a mind that runs continuously. It g
 
 - Python 3.12+
 - Node.js 18+
-- An OpenAI API key
+- An OpenAI API key (or use Ollama — see Configuration)
 
-### Setup
+### Setup (with uv — recommended)
+
+[uv](https://docs.astral.sh/uv/getting-started/installation) is a fast Python package manager. Install it, then:
+
+```bash
+git clone https://github.com/brendanhogan/hermitclaw.git
+cd hermitclaw
+
+# Python deps (creates .venv, installs from lockfile)
+uv sync
+
+# Build frontend
+cd frontend && npm install && npm run build && cd ..
+
+export OPENAI_API_KEY="sk-..."   # or configure Ollama in config.yaml
+
+# Run
+uv run python hermitclaw/main.py
+```
+
+### Setup (with pip)
 
 ```bash
 git clone https://github.com/brendanhogan/hermitclaw.git
@@ -59,7 +79,7 @@ For frontend hot-reload during development:
 
 ```bash
 # Terminal 1 — backend
-python hermitclaw/main.py
+uv run python hermitclaw/main.py   # or: python hermitclaw/main.py
 
 # Terminal 2 — frontend dev server (proxies API to backend)
 cd frontend && npm run dev
@@ -319,22 +339,31 @@ The crab can only touch files inside its own box. Safety measures:
 Edit `config.yaml`:
 
 ```yaml
-model: "gpt-4.1"                         # any OpenAI model
-thinking_pace_seconds: 5                  # seconds between think cycles
-max_thoughts_in_context: 4                # recent thoughts in LLM context
-reflection_threshold: 50                  # importance sum before reflecting
-memory_retrieval_count: 3                 # memories per retrieval query
-embedding_model: "text-embedding-3-small" # embedding model for memory
-recency_decay_rate: 0.995                 # memory recency decay
+provider: "openai"             # "openai" | "openrouter" | "custom"
+model: "gpt-4.1"               # any OpenAI model
+thinking_pace_seconds: 5       # seconds between think cycles
+max_thoughts_in_context: 4     # recent thoughts in LLM context
+reflection_threshold: 50       # importance sum before reflecting
+memory_retrieval_count: 3      # memories per retrieval query
+embedding_model: "text-embedding-3-small"
+recency_decay_rate: 0.995
 ```
 
-Set your API key via environment variable:
-
-```bash
-export OPENAI_API_KEY="sk-..."
+**Using Ollama (local models):**
+```yaml
+provider: "custom"
+model: "llama3"                # or any ollama model name
+base_url: "http://localhost:11434/v1"
 ```
 
-Or set `api_key` directly in `config.yaml`.
+**Using OpenRouter:**
+```yaml
+provider: "openrouter"
+model: "google/gemini-2.0-flash-001"
+# export OPENROUTER_API_KEY=your-key
+```
+
+Set your API key via environment variable for OpenAI: `export OPENAI_API_KEY="sk-..."`. Or set `api_key` directly in `config.yaml`.
 
 ---
 

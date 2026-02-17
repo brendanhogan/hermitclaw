@@ -23,9 +23,8 @@ def load_config() -> dict:
         config = yaml.safe_load(f)
 
     # Provider (default: openai)
-    config["provider"] = (
-        os.environ.get("HERMITCLAW_PROVIDER")
-        or config.get("provider", "openai")
+    config["provider"] = os.environ.get("HERMITCLAW_PROVIDER") or config.get(
+        "provider", "openai"
     )
     provider = config["provider"]
 
@@ -45,7 +44,9 @@ def load_config() -> dict:
     )
 
     # Model
-    config["model"] = os.environ.get("HERMITCLAW_MODEL") or config.get("model", "gpt-4o")
+    config["model"] = os.environ.get("HERMITCLAW_MODEL") or config.get(
+        "model", "gpt-4o"
+    )
 
     # Defaults for numeric settings
     config.setdefault("thinking_pace_seconds", 45)
@@ -59,11 +60,15 @@ def load_config() -> dict:
     # Resolve environment_path relative to project root
     project_root = os.path.dirname(os.path.dirname(__file__))
     if not os.path.isabs(config["environment_path"]):
-        config["environment_path"] = os.path.join(project_root, config["environment_path"])
+        config["environment_path"] = os.path.join(
+            project_root, config["environment_path"]
+        )
 
     # Validation
     if provider == "custom" and not config.get("base_url"):
-        raise ValueError("Provider 'custom' requires base_url in config.yaml or HERMITCLAW_BASE_URL env var")
+        raise ValueError(
+            "Provider 'custom' requires base_url in config.yaml or HERMITCLAW_BASE_URL env var"
+        )
 
     return config
 
