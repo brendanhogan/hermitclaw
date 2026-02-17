@@ -7,7 +7,7 @@ import logging
 import os
 import time
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -34,6 +34,8 @@ def _get_brain(request: Request) -> Brain:
     crab_id = request.query_params.get("crab")
     if crab_id and crab_id in brains:
         return brains[crab_id]
+    if not brains:
+        raise HTTPException(status_code=404, detail="No crabs exist yet")
     return next(iter(brains.values()))
 
 
