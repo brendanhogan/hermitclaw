@@ -14,6 +14,10 @@ Leave it running and it fills a folder with research reports, Python scripts, no
 
 ---
 
+> **Note:** The sandboxing in this project is designed to prevent the LLM from *accidentally* doing damage — not to withstand adversarial attack. The shell blocklist and Python monkey-patches stop a well-behaved model from wandering outside its box, but they are bypassable by a determined actor (or a sufficiently creative jailbreak). If you want real isolation, run it in a Docker container or VM. For a pet that's trying its best to be a good crab, this is fine.
+
+---
+
 ## Why
 
 Most AI tools wait for you to ask them something. HermitClaw doesn't wait. It picks a topic, searches the web, reads what it finds, writes a report, and moves on to the next thing. It remembers what it did yesterday. It notices when its interests start shifting. Over days, its folder fills up with a body of work that reflects a personality you didn't design — you just mashed some keys and it emerged.
