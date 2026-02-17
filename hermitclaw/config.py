@@ -13,7 +13,9 @@ def load_config() -> dict:
 
     # Environment variable overrides
     config["api_key"] = (
-        os.environ.get("OPENAI_API_KEY")
+        os.environ.get("HERMITCLAW_API_KEY")
+        or os.environ.get("ZAI_API_KEY")
+        or os.environ.get("OPENAI_API_KEY")
         or config.get("api_key")
     )
     config["model"] = os.environ.get("HERMITCLAW_MODEL") or config.get("model", "gpt-4o")

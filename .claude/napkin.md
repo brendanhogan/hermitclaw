@@ -25,3 +25,5 @@
 | 2026-02-17 | self | Single-slot `_user_message` could overwrite earlier sends before the next think cycle. | Queue user messages with FIFO (`_user_messages`) so no sends are silently lost. |
 | 2026-02-17 | self | User messages were popped before inbox handling, so an inbox alert could overwrite and effectively drop the queued user message. | In `_build_input`, gate inbox override with `and not has_user_msg` so direct user messages always win that cycle. |
 | 2026-02-17 | self | Frontend renderer treated every `function_call_output` as left-side chat. | Render `function_call_output` only when it matches a quoted user reply (`They say: "..."`); ignore generic tool outputs. |
+| 2026-02-17 | self | Mistyped env-var fallback chain while adding ZAI_API_KEY support (`or` missing), which would have caused syntax error. | After patch edits, always run `py_compile` immediately to catch syntax regressions before proceeding. |
+| 2026-02-17 | self | Repeated restarts can be misleading when compose points to remote image instead of local source. | For active debugging, use local `build:` in compose (or bind-mount code) so container runs current workspace code. |

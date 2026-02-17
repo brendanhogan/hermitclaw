@@ -1,11 +1,15 @@
 services:
   hermitclaw:
-    image: ghcr.io/tjlong84/hermitclaw:main
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: hermitclaw-local:dev
     container_name: hermitclaw
     restart: unless-stopped
     environment:
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      OPENAI_BASE_URL: https://api.z.ai/api/coding/paas/v4
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ZAI_API_KEY: ${ZAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.z.ai/api/coding/paas/v4}
       HERMITCLAW_MODEL: ${HERMITCLAW_MODEL:-glm-4.7}
       BOX_ROOT: /data/boxes
       PORT: 8000
