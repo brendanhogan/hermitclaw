@@ -13,5 +13,8 @@ dependencies = [
     "pymupdf>=1.24.0",
 ]
 
+[project.optional-dependencies]
+test = ["pytest>=8.0"]
+
 [tool.setuptools.packages.find]
 include = ["hermitclaw*"]

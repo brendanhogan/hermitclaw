@@ -14,6 +14,10 @@ Leave it running and it fills a folder with research reports, Python scripts, no
 
 ---
 
+> **Warning:** This project runs an LLM in a loop with shell access and web browsing. There are guardrails in place (command blocklist, restricted paths, Python monkey-patches) but **they are not a security boundary** — they are bypassable and should not be relied on to protect your system. If you want real isolation, run this in a Docker container or VM.
+
+---
+
 ## Why
 
 Most AI tools wait for you to ask them something. HermitClaw doesn't wait. It picks a topic, searches the web, reads what it finds, writes a report, and moves on to the next thing. It remembers what it did yesterday. It notices when its interests start shifting. Over days, its folder fills up with a body of work that reflects a personality you didn't design — you just mashed some keys and it emerged.
@@ -28,9 +32,29 @@ There's something fascinating about watching a mind that runs continuously. It g
 
 - Python 3.12+
 - Node.js 18+
-- An OpenAI API key
+- An OpenAI API key (or use Ollama — see Configuration)
 
-### Setup
+### Setup (with uv — recommended)
+
+[uv](https://docs.astral.sh/uv/getting-started/installation) is a fast Python package manager. Install it, then:
+
+```bash
+git clone https://github.com/brendanhogan/hermitclaw.git
+cd hermitclaw
+
+# Python deps (creates .venv, installs from lockfile)
+uv sync
+
+# Build frontend
+cd frontend && npm install && npm run build && cd ..
+
+export OPENAI_API_KEY="sk-..."   # or configure Ollama in config.yaml
+
+# Run
+uv run python hermitclaw/main.py
+```
+
+### Setup (with pip)
 
 ```bash
 git clone https://github.com/brendanhogan/hermitclaw.git
@@ -59,7 +83,7 @@ For frontend hot-reload during development:
 
 ```bash
 # Terminal 1 — backend
-python hermitclaw/main.py
+uv run python hermitclaw/main.py   # or: python hermitclaw/main.py
 
 # Terminal 2 — frontend dev server (proxies API to backend)
 cd frontend && npm run dev
@@ -302,15 +326,19 @@ Activity icons appear beside the crab when it's using tools: a terminal window, 
 
 ---
 
-## Sandboxing and Safety
+## Guardrails
 
-The crab can only touch files inside its own box. Safety measures:
+The crab is intended to only touch files inside its own box. Here's what we do to encourage that — but **none of these are a real security boundary**. They are best-effort guardrails that a determined actor, a jailbroken model, or a prompt injection from a fetched webpage could bypass. If you care about isolation, use a container.
 
-- **Shell commands** — blocked prefixes (`sudo`, `curl`, `ssh`, `rm -rf /`, etc.), no path traversal (`..`), no absolute paths, no shell escapes (backticks, `$()`, `${}`)
-- **Python scripts** — run through `pysandbox.py` which patches `open()`, `os.*`, and blocks `subprocess`, `socket`, `shutil`, and other dangerous modules
+What's in place:
+
+- **Shell command blocklist** — blocks dangerous prefixes (`sudo`, `curl`, `ssh`, `rm -rf /`, etc.), rejects path traversal (`..`), absolute paths, and shell escape patterns (backticks, `$()`, `${}`). This is a blocklist, not an allowlist — it will miss things.
+- **Python monkey-patches** — `pysandbox.py` patches `builtins.open()`, various `os.*` functions, and poisons `sys.modules` for `subprocess`, `socket`, etc. These patches can be undone by code that knows they're there.
 - **60-second timeout** on all commands
 - **Restricted PATH** — only the crab's venv `bin/`, `/usr/bin`, `/bin`
 - **Own virtual environment** — the crab can `pip install` packages into its own venv without touching your system Python
+
+For actual isolation, run in Docker or a VM. We'd like to make the guardrails stronger over time — contributions from security folks are very welcome.
 
 ---
 
@@ -319,22 +347,40 @@ The crab can only touch files inside its own box. Safety measures:
 Edit `config.yaml`:
 
 ```yaml
-model: "gpt-4.1"                         # any OpenAI model
-thinking_pace_seconds: 5                  # seconds between think cycles
-max_thoughts_in_context: 4                # recent thoughts in LLM context
-reflection_threshold: 50                  # importance sum before reflecting
-memory_retrieval_count: 3                 # memories per retrieval query
-embedding_model: "text-embedding-3-small" # embedding model for memory
-recency_decay_rate: 0.995                 # memory recency decay
+provider: "openai"             # "openai" | "openrouter" | "custom"
+model: "gpt-4.1"               # any OpenAI model
+thinking_pace_seconds: 5       # seconds between think cycles
+max_thoughts_in_context: 4     # recent thoughts in LLM context
+reflection_threshold: 50       # importance sum before reflecting
+memory_retrieval_count: 3      # memories per retrieval query
+embedding_model: "text-embedding-3-small"
+recency_decay_rate: 0.995
 ```
 
-Set your API key via environment variable:
-
-```bash
-export OPENAI_API_KEY="sk-..."
+**Using Ollama (local models):**
+```yaml
+provider: "custom"
+model: "glm-4.7-flash"         # or any ollama model name
+base_url: "http://localhost:11434/v1"
+embedding_model: "nomic-embed-text"  # required for memory search; run: ollama pull nomic-embed-text
 ```
 
-Or set `api_key` directly in `config.yaml`.
+**Using Ollama cloud with web search** (e.g. minimax-m2.5:cloud):
+```yaml
+provider: "custom"
+model: "minimax-m2.5:cloud"
+base_url: "http://localhost:11434/v1"
+# export OLLAMA_API_KEY=your-key   # enables web_search + web_fetch from ollama.com
+```
+
+**Using OpenRouter:**
+```yaml
+provider: "openrouter"
+model: "google/gemini-2.0-flash-001"
+# export OPENROUTER_API_KEY=your-key
+```
+
+Set your API key via environment variable for OpenAI: `export OPENAI_API_KEY="sk-..."`. Or set `api_key` directly in `config.yaml`.
 
 ---
 

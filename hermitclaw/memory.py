@@ -58,8 +58,13 @@ class MemoryStream:
             # importance_sum starts at 0 after restart (reflection threshold resets)
         logger.info(f"Loaded {len(self.memories)} memories from stream")
 
-    def add(self, content: str, kind: str = "thought", depth: int = 0,
-            references: list[str] | None = None) -> dict:
+    def add(
+        self,
+        content: str,
+        kind: str = "thought",
+        depth: int = 0,
+        references: list[str] | None = None,
+    ) -> dict:
         """Score importance, compute embedding, append to stream."""
         # Score importance via LLM
         importance = self._score_importance(content)
@@ -163,7 +168,7 @@ class MemoryStream:
                 instructions=IMPORTANCE_PROMPT,
             )
             # Extract the first integer from the response
-            match = re.search(r'\d+', result)
+            match = re.search(r"\d+", result)
             if match:
                 score = int(match.group())
                 return max(1, min(10, score))

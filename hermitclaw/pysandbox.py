@@ -3,6 +3,18 @@
 import builtins
 import os
 import sys
+import types
+
+
+def _blocked_module(name: str):
+    """Create a fake module that raises PermissionError on any attribute access."""
+    mod = types.ModuleType(name)
+
+    def __getattr__(attr):
+        raise PermissionError(f"{name} is blocked in sandbox")
+
+    mod.__getattr__ = __getattr__
+    return mod
 
 
 def _check_path(path, env_root):
@@ -35,10 +47,18 @@ def setup(env_root):
         def wrapper(path, *args, **kwargs):
             _check_path(path, env_root)
             return fn(path, *args, **kwargs)
+
         return wrapper
 
-    for name in ("listdir", "scandir", "remove", "unlink",
-                 "rmdir", "mkdir", "makedirs"):
+    for name in (
+        "listdir",
+        "scandir",
+        "remove",
+        "unlink",
+        "rmdir",
+        "mkdir",
+        "makedirs",
+    ):
         if hasattr(os, name):
             setattr(os, name, _wrap1(getattr(os, name)))
 
@@ -48,6 +68,7 @@ def setup(env_root):
             _check_path(src, env_root)
             _check_path(dst, env_root)
             return fn(src, dst, *args, **kwargs)
+
         return wrapper
 
     for name in ("rename", "replace", "link", "symlink"):
@@ -58,11 +79,26 @@ def setup(env_root):
     def _blocked(name):
         def nope(*a, **k):
             raise PermissionError(f"os.{name}() is blocked in sandbox")
+
         return nope
 
-    for name in ("system", "popen", "execl", "execle", "execlp", "execlpe",
-                 "execv", "execve", "execvp", "execvpe", "fork", "forkpty",
-                 "kill", "killpg", "chroot"):
+    for name in (
+        "system",
+        "popen",
+        "execl",
+        "execle",
+        "execlp",
+        "execlpe",
+        "execv",
+        "execve",
+        "execvp",
+        "execvpe",
+        "fork",
+        "forkpty",
+        "kill",
+        "killpg",
+        "chroot",
+    ):
         if hasattr(os, name):
             setattr(os, name, _blocked(name))
 
@@ -71,21 +107,47 @@ def setup(env_root):
     # Setting it to None breaks those imports entirely. Instead, we import it
     # and then replace its dangerous functions with no-ops.
     import shutil as _shutil
+
     def _shutil_blocked(name):
         def nope(*a, **k):
             raise PermissionError(f"shutil.{name}() is blocked in sandbox")
+
         return nope
-    for _fn in ("rmtree", "move", "copy", "copy2", "copytree",
-                "chown", "make_archive", "unpack_archive"):
+
+    for _fn in (
+        "rmtree",
+        "move",
+        "copy",
+        "copy2",
+        "copytree",
+        "chown",
+        "make_archive",
+        "unpack_archive",
+    ):
         setattr(_shutil, _fn, _shutil_blocked(_fn))
 
     # --- Block dangerous module imports ---
-    # Note: we block urllib.request (network access) but NOT urllib or urllib.parse,
-    # because pathlib and many libraries import urllib.parse for URL string handling.
-    for mod in ("subprocess", "socket", "http", "urllib.request",
-                "ftplib", "smtplib", "ctypes", "multiprocessing", "signal",
-                "webbrowser"):
-        sys.modules[mod] = None
+    # Use fake modules (not None) so that 'import urllib' etc. don't fail with
+    # "halted; None in sys.modules" — imports succeed but any use raises.
+    for mod in (
+        "subprocess",
+        "socket",
+        "http",
+        "ftplib",
+        "smtplib",
+        "ctypes",
+        "multiprocessing",
+        "signal",
+        "webbrowser",
+    ):
+        sys.modules[mod] = _blocked_module(mod)
+
+    # urllib.request: fake module. Must inject into urllib so "urllib.request" works.
+    _fake_request = _blocked_module("urllib.request")
+    sys.modules["urllib.request"] = _fake_request
+    import urllib
+
+    urllib.request = _fake_request
 
 
 if __name__ == "__main__":
@@ -101,6 +163,15 @@ if __name__ == "__main__":
         exec(compile(code, "<sandbox>", "exec"))
     else:
         script = sys.argv[2]
+        if script == "-" or not script.strip():
+            print(
+                "Error: 'python -' (stdin) is not supported in sandbox. Use 'python -c \"code\"' or 'python script.py'",
+                file=sys.stderr,
+            )
+            sys.exit(1)
         sys.argv = sys.argv[2:]  # normalize sys.argv for the script
         with open(script) as f:
-            exec(compile(f.read(), script, "exec"), {"__name__": "__main__", "__file__": script})
+            exec(
+                compile(f.read(), script, "exec"),
+                {"__name__": "__main__", "__file__": script},
+            )

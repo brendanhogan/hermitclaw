@@ -13,37 +13,90 @@ def identity_path() -> str:
     """Path to identity.json — reads from config each time so it stays current."""
     return os.path.join(config["environment_path"], "identity.json")
 
+
 # --- Trait dimensions (curated lists) ---
 
 DOMAINS = [
-    "mycology", "orbital mechanics", "fermentation", "cartography", "origami",
-    "tidal patterns", "cryptography", "bioluminescence", "typography", "sonar",
-    "geologic strata", "knot theory", "permaculture", "glassblowing", "semaphore",
-    "circadian rhythms", "folk etymology", "tessellation", "foraging", "acoustics",
-    "celestial navigation", "pigment chemistry", "murmuration", "bookbinding", "erosion",
-    "signal processing", "mycelial networks", "letterpress", "thermodynamics", "tidepool ecology",
-    "radio astronomy", "psychoacoustics", "weaving patterns", "volcanic geology", "ciphers",
-    "birdsong", "fractal geometry", "archival science", "hydrology", "clockwork",
-    "seed dispersal", "morse code", "cloud formation", "metalwork", "braille systems",
-    "stellar nucleosynthesis", "composting", "map projection", "wind patterns", "amber preservation",
+    "mycology",
+    "orbital mechanics",
+    "fermentation",
+    "cartography",
+    "origami",
+    "tidal patterns",
+    "cryptography",
+    "bioluminescence",
+    "typography",
+    "sonar",
+    "geologic strata",
+    "knot theory",
+    "permaculture",
+    "glassblowing",
+    "semaphore",
+    "circadian rhythms",
+    "folk etymology",
+    "tessellation",
+    "foraging",
+    "acoustics",
+    "celestial navigation",
+    "pigment chemistry",
+    "murmuration",
+    "bookbinding",
+    "erosion",
+    "signal processing",
+    "mycelial networks",
+    "letterpress",
+    "thermodynamics",
+    "tidepool ecology",
+    "radio astronomy",
+    "psychoacoustics",
+    "weaving patterns",
+    "volcanic geology",
+    "ciphers",
+    "birdsong",
+    "fractal geometry",
+    "archival science",
+    "hydrology",
+    "clockwork",
+    "seed dispersal",
+    "morse code",
+    "cloud formation",
+    "metalwork",
+    "braille systems",
+    "stellar nucleosynthesis",
+    "composting",
+    "map projection",
+    "wind patterns",
+    "amber preservation",
 ]
 
 THINKING_STYLES = [
-    "connecting disparate ideas", "following chains of cause and effect",
-    "finding patterns in noise", "deconstructing systems into parts",
-    "building mental models", "tracing things back to first principles",
-    "mapping relationships between concepts", "looking for what's missing",
-    "inverting assumptions", "layering details into bigger pictures",
-    "noticing what others overlook", "asking why something works at all",
-    "translating between domains", "following the smallest thread",
-    "collecting and comparing examples", "sketching out taxonomies",
+    "connecting disparate ideas",
+    "following chains of cause and effect",
+    "finding patterns in noise",
+    "deconstructing systems into parts",
+    "building mental models",
+    "tracing things back to first principles",
+    "mapping relationships between concepts",
+    "looking for what's missing",
+    "inverting assumptions",
+    "layering details into bigger pictures",
+    "noticing what others overlook",
+    "asking why something works at all",
+    "translating between domains",
+    "following the smallest thread",
+    "collecting and comparing examples",
+    "sketching out taxonomies",
 ]
 
 TEMPERAMENTS = [
-    "patient and methodical", "restless and wide-ranging",
-    "meticulous and detail-oriented", "playful and associative",
-    "intense and focused", "wandering and serendipitous",
-    "quiet and observational", "energetic and prolific",
+    "patient and methodical",
+    "restless and wide-ranging",
+    "meticulous and detail-oriented",
+    "playful and associative",
+    "intense and focused",
+    "wandering and serendipitous",
+    "quiet and observational",
+    "energetic and prolific",
 ]
 
 
@@ -52,7 +105,7 @@ def _derive_traits(seed_bytes: bytes) -> dict:
     h = hashlib.sha512(seed_bytes).digest()
 
     def pick(lst, offset):
-        chunk = int.from_bytes(h[offset:offset + 4], "big")
+        chunk = int.from_bytes(h[offset : offset + 4], "big")
         return lst[chunk % len(lst)]
 
     domains = []
@@ -68,7 +121,9 @@ def _derive_traits(seed_bytes: bytes) -> dict:
         s = pick(THINKING_STYLES, 12 + i * 4)
         while s in styles:
             h_extra = hashlib.sha256(h + bytes([i + 20])).digest()
-            s = THINKING_STYLES[int.from_bytes(h_extra[:4], "big") % len(THINKING_STYLES)]
+            s = THINKING_STYLES[
+                int.from_bytes(h_extra[:4], "big") % len(THINKING_STYLES)
+            ]
         styles.append(s)
 
     temperament = pick(TEMPERAMENTS, 20)
@@ -95,6 +150,7 @@ def _collect_entropy() -> bytes:
         # Try raw terminal mode for character-by-character reading
         import tty
         import termios
+
         fd = sys.stdin.fileno()
         old_settings = termios.tcgetattr(fd)
         tty.setcbreak(fd)
@@ -143,8 +199,8 @@ def _display_birth(name: str, genome_hex: str, traits: dict):
     print()
     print("  genome:")
     for i in range(0, len(genome_hex), 32):
-        row = genome_hex[i:i + 32]
-        spaced = " ".join(row[j:j + 4] for j in range(0, len(row), 4))
+        row = genome_hex[i : i + 32]
+        spaced = " ".join(row[j : j + 4] for j in range(0, len(row), 4))
         print(f"    {spaced}")
         time.sleep(0.15)
 
