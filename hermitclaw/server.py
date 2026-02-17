@@ -51,7 +51,8 @@ app.add_middleware(
 
 @app.get("/health")
 async def health():
-    """Health check — used by Docker healthcheck and Cloudflare."""    return {"ok": True, "crabs": len(brains)}
+    """Health check endpoint for Docker and Cloudflare."""
+    return {"ok": True, "crabs": len(brains)}
 
 @app.websocket("/ws/{crab_id}")
 async def websocket_endpoint(ws: WebSocket, crab_id: str):
