@@ -3,10 +3,30 @@
 import json
 import logging
 import os
+
+import httpx
 import openai
 from hermitclaw.config import config
 
 logger = logging.getLogger("hermitclaw.providers")
+
+
+def _log_error_response(response: httpx.Response) -> None:
+    """Event hook: log 4xx/5xx response body immediately (before retries consume it)."""
+    if response.status_code >= 400:
+        try:
+            response.read()
+            body = response.text[:1000] if response.text else "(empty)"
+        except Exception:
+            body = "(could not read)"
+        logger.error(
+            "Ollama/API HTTP %s: %s | url=%s",
+            response.status_code,
+            body,
+            str(response.url),
+        )
+
+
 TOOLS = [
     {
         "type": "function",
@@ -188,11 +208,13 @@ def _translate_input_to_messages(
                 "role": "tool",
                 "content": str(item.get("output", "")),
             }
+            # v1/chat/completions is OpenAI-compatible; use tool_call_id
+            call_id = item.get("call_id")
+            if call_id:
+                tool_msg["tool_call_id"] = call_id
             if config["provider"] == "custom":
-                # Ollama expects tool_name; OpenAI expects tool_call_id
+                # Also send tool_name for Ollama cloud models that may expect it
                 tool_msg["tool_name"] = item.get("name", "")
-            else:
-                tool_msg["tool_call_id"] = item["call_id"]
             messages.append(tool_msg)
         elif "role" in item:
             content = item.get("content")
@@ -232,12 +254,14 @@ def _normalize_completions_response(response) -> dict:
     output = []
 
     if message.tool_calls:
-        for tc in message.tool_calls:
+        for i, tc in enumerate(message.tool_calls):
+            # Ollama may omit id; ensure we have one for tool_call_id in follow-up
+            call_id = tc.id or f"call_{tc.function.name}_{i}"
             tool_calls.append(
                 {
                     "name": tc.function.name,
                     "arguments": json.loads(tc.function.arguments),
-                    "call_id": tc.id,
+                    "call_id": call_id,
                 }
             )
 
@@ -248,14 +272,14 @@ def _normalize_completions_response(response) -> dict:
                 "content": text,
                 "tool_calls": [
                     {
-                        "id": tc.id,
+                        "id": tc.id or f"call_{tc.function.name}_{i}",
                         "type": "function",
                         "function": {
                             "name": tc.function.name,
                             "arguments": tc.function.arguments,
                         },
                     }
-                    for tc in message.tool_calls
+                    for i, tc in enumerate(message.tool_calls)
                 ],
             }
         )
@@ -284,6 +308,11 @@ def _completions_client() -> openai.OpenAI:
         kwargs["base_url"] = config["base_url"]
         # Local/cloud models (Ollama, etc.) can return transient 500s — retry more
         kwargs["max_retries"] = 5
+        # Log 500 response bodies immediately (before retries)
+        http_client = httpx.Client(
+            event_hooks={"response": [_log_error_response]},
+        )
+        kwargs["http_client"] = http_client
     return openai.OpenAI(**kwargs)
 
 
@@ -395,14 +424,19 @@ def _chat_completions(
         response = _completions_client().chat.completions.create(**kwargs)
         return _normalize_completions_response(response)
     except Exception as e:
-        err_detail = str(e)
         body = ""
-        resp = getattr(e, "response", None)
-        if resp is not None and hasattr(resp, "text"):
-            body = resp.text[:500] if resp.text else ""
-        logger.error(
+        for attr in ("response", "http_response", "body"):
+            val = getattr(e, attr, None)
+            if val is not None:
+                if hasattr(val, "text"):
+                    body = (val.text or "")[:500]
+                    break
+                if isinstance(val, str):
+                    body = val[:500]
+                    break
+        logger.exception(
             "chat_completions failed: %s | response_body=%s",
-            err_detail,
+            e,
             body or "(none)",
         )
         raise
