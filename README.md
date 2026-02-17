@@ -352,8 +352,9 @@ recency_decay_rate: 0.995
 **Using Ollama (local models):**
 ```yaml
 provider: "custom"
-model: "llama3"                # or any ollama model name
+model: "glm-4.7-flash"         # or any ollama model name
 base_url: "http://localhost:11434/v1"
+embedding_model: "nomic-embed-text"  # required for memory search; run: ollama pull nomic-embed-text
 ```
 
 **Using OpenRouter:**

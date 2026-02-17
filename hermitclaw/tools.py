@@ -76,7 +76,7 @@ def ensure_venv(env_root: str):
     uv = shutil.which("uv")
     if uv:
         subprocess.run(
-            [uv, "venv", venv, "--python", sys.executable],
+            [uv, "venv", venv, "--python", sys.executable, "--seed", "pip"],
             capture_output=True,
             timeout=30,
         )

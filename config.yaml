@@ -10,7 +10,7 @@ max_thoughts_in_context: 4     # rolling window of recent thoughts
 # Memory stream settings
 reflection_threshold: 50       # accumulated importance before reflecting
 memory_retrieval_count: 3      # how many memories to retrieve per query
-embedding_model: "text-embedding-3-small"
+embedding_model: "text-embedding-3-small"  # for Ollama use: nomic-embed-text
 recency_decay_rate: 0.995      # exponential decay rate for recency scoring
 
 # environment_path is auto-detected from *_box/ directories
