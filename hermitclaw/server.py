@@ -48,6 +48,11 @@ app.add_middleware(
 
 # --- WebSocket ---
 
+
+@app.get("/health")
+async def health():
+    """Health check — used by Docker healthcheck and Cloudflare."""    return {"ok": True, "crabs": len(brains)}
+
 @app.websocket("/ws/{crab_id}")
 async def websocket_endpoint(ws: WebSocket, crab_id: str):
     brain = brains.get(crab_id)
@@ -111,9 +116,9 @@ async def create_crab(request: Request):
     if crab_id in brains:
         return {"ok": False, "error": f"crab '{crab_id}' already exists"}
 
-    # Create box directory
-    project_root = os.path.dirname(os.path.dirname(__file__))
-    box_path = os.path.join(project_root, f"{crab_id}_box")
+    # Create box directory under BOX_ROOT if set, else project root
+    box_root = os.environ.get("BOX_ROOT") or os.path.dirname(os.path.dirname(__file__))
+    box_path = os.path.join(box_root, f"{crab_id}_box")
     os.makedirs(box_path, exist_ok=True)
 
     # Generate identity with random entropy (no interactive keyboard mashing)

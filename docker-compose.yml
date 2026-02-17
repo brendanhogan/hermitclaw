@@ -1,0 +1,48 @@
+services:
+  hermitclaw:
+    image: ghcr.io/tjlong84/hermitclaw:main
+    container_name: hermitclaw
+    restart: unless-stopped
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      HERMITCLAW_MODEL: ${HERMITCLAW_MODEL:-gpt-4.1}
+      BOX_ROOT: /data/boxes
+      PORT: 8000
+      HERMITCLAW_HEADLESS: "1"
+    volumes:
+      # Persistent crab box storage — survives redeploys
+      - /media/serverfiles/hermitclaw/boxes:/data/boxes
+    # No public port — Cloudflare tunnel only
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: hermitclaw-watchtower
+    restart: unless-stopped
+    environment:
+      # GHCR credentials so watchtower can pull updated images
+      REPO_USER: ${GHCR_USER}
+      REPO_PASS: ${GHCR_TOKEN}
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_POLL_INTERVAL: "300"   # check every 5 minutes
+      WATCHTOWER_LABEL_ENABLE: "false"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    # Only watch the hermitclaw container
+    command: hermitclaw
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: hermitclaw-cloudflared
+    restart: unless-stopped
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARED_TUNNEL_TOKEN}
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARED_TUNNEL_TOKEN}
+    depends_on:
+      hermitclaw:
+        condition: service_healthy
