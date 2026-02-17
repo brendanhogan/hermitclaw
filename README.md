@@ -14,7 +14,7 @@ Leave it running and it fills a folder with research reports, Python scripts, no
 
 ---
 
-> **Note:** The sandboxing in this project is designed to prevent the LLM from *accidentally* doing damage — not to withstand adversarial attack. The shell blocklist and Python monkey-patches stop a well-behaved model from wandering outside its box, but they are bypassable by a determined actor (or a sufficiently creative jailbreak). If you want real isolation, run it in a Docker container or VM. For a pet that's trying its best to be a good crab, this is fine.
+> **Warning:** This project runs an LLM in a loop with shell access and web browsing. There are guardrails in place (command blocklist, restricted paths, Python monkey-patches) but **they are not a security boundary** — they are bypassable and should not be relied on to protect your system. If you want real isolation, run this in a Docker container or VM.
 
 ---
 
@@ -326,15 +326,19 @@ Activity icons appear beside the crab when it's using tools: a terminal window, 
 
 ---
 
-## Sandboxing and Safety
+## Guardrails
 
-The crab can only touch files inside its own box. Safety measures:
+The crab is intended to only touch files inside its own box. Here's what we do to encourage that — but **none of these are a real security boundary**. They are best-effort guardrails that a determined actor, a jailbroken model, or a prompt injection from a fetched webpage could bypass. If you care about isolation, use a container.
 
-- **Shell commands** — blocked prefixes (`sudo`, `curl`, `ssh`, `rm -rf /`, etc.), no path traversal (`..`), no absolute paths, no shell escapes (backticks, `$()`, `${}`)
-- **Python scripts** — run through `pysandbox.py` which patches `open()`, `os.*`, and blocks `subprocess`, `socket`, `shutil`, and other dangerous modules
+What's in place:
+
+- **Shell command blocklist** — blocks dangerous prefixes (`sudo`, `curl`, `ssh`, `rm -rf /`, etc.), rejects path traversal (`..`), absolute paths, and shell escape patterns (backticks, `$()`, `${}`). This is a blocklist, not an allowlist — it will miss things.
+- **Python monkey-patches** — `pysandbox.py` patches `builtins.open()`, various `os.*` functions, and poisons `sys.modules` for `subprocess`, `socket`, etc. These patches can be undone by code that knows they're there.
 - **60-second timeout** on all commands
 - **Restricted PATH** — only the crab's venv `bin/`, `/usr/bin`, `/bin`
 - **Own virtual environment** — the crab can `pip install` packages into its own venv without touching your system Python
+
+For actual isolation, run in Docker or a VM. We'd like to make the guardrails stronger over time — contributions from security folks are very welcome.
 
 ---
 
