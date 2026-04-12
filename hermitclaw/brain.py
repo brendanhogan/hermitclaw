@@ -199,6 +199,17 @@ class Brain:
 
     # --- Helpers ---
 
+    @staticmethod
+    def _is_garbled(text: str) -> bool:
+        """Detect degenerate LLM output (repetitive token loops)."""
+        stripped = text.strip()
+        if len(stripped) < 20:
+            return False
+        lines = [l for l in stripped.split("\n") if l.strip()]
+        if len(lines) >= 4 and len(set(lines)) <= 2:
+            return True
+        return False
+
     def _read_file(self, rel_path: str) -> str | None:
         """Read a file from environment/, return contents or None."""
         fpath = os.path.join(self.env_path, rel_path)
@@ -478,33 +489,34 @@ class Brain:
 
     # --- Input building ---
 
-    def _build_input(self) -> tuple[str, list[dict]]:
-        instructions = main_system_prompt(self.identity, self._current_focus)
-
-        input_list = []
+    def _format_recent_context(self) -> str:
+        """Summarize recent events as text for the user prompt (not as assistant messages)."""
         recent = [
             e
             for e in self.events
             if e["type"] in ("thought", "tool_call", "reflection")
         ]
         recent = recent[-config["max_thoughts_in_context"] :]
+        if not recent:
+            return ""
 
+        lines = []
         for ev in recent:
             if ev["type"] == "thought":
-                input_list.append({"role": "assistant", "content": ev["text"]})
+                lines.append(f"- You thought: {ev['text'][:200]}")
             elif ev["type"] == "tool_call":
-                input_list.append(
-                    {"role": "assistant", "content": f"[Used {ev['tool']} tool]"}
-                )
+                lines.append(f"- You used the {ev['tool']} tool")
             elif ev["type"] == "reflection":
-                input_list.append(
-                    {
-                        "role": "assistant",
-                        "content": f"[Reflection: {ev['text'][:200]}...]",
-                    }
-                )
+                lines.append(f"- Reflection: {ev['text'][:200]}")
+        return "Your recent activity:\n" + "\n".join(lines)
 
-        if self.thought_count == 0 and not recent:
+    def _build_input(self) -> tuple[str, list[dict]]:
+        instructions = main_system_prompt(self.identity, self._current_focus)
+
+        input_list = []
+        recent_context = self._format_recent_context()
+
+        if self.thought_count == 0 and not recent_context:
             # --- Wake up: read own files + retrieve memories ---
             nudge = self._build_wake_nudge()
         else:
@@ -541,7 +553,13 @@ class Brain:
                 elif f["content"]:
                     parts.append(f"\n📎 {f['name']}:\n{f['content']}")
             nudge = "\n".join(parts)
-            # Build content with any images
+
+        # Prepend recent activity context to the nudge
+        if recent_context:
+            nudge = recent_context + "\n\n" + nudge
+
+        # Build the user message (with optional image attachments)
+        if self._inbox_pending:
             content_parts: list[dict] = []
             for f in self._inbox_pending:
                 if f["image"]:
@@ -555,10 +573,8 @@ class Brain:
                     "content": content_parts if len(content_parts) > 1 else nudge,
                 }
             )
-            # Reset plan counter so the crab has time to work on the file
             self._cycles_since_plan = 0
             self._inbox_pending = []
-        # Include room snapshot on wake-up only (first think cycle)
         elif self.thought_count == 0 and self.latest_snapshot:
             input_list.append(
                 {
@@ -829,14 +845,18 @@ class Brain:
             )
 
         if response.get("text"):
-            self.thought_count += 1
-            await self._emit("thought", text=response["text"])
+            text = response["text"]
+            if self._is_garbled(text):
+                logger.warning("Discarding garbled LLM response: %s", text[:120])
+                await self._emit("error", text="(garbled response discarded)")
+            else:
+                self.thought_count += 1
+                await self._emit("thought", text=text)
 
-            # Store in memory stream (runs embedding + importance scoring in background)
-            try:
-                await asyncio.to_thread(self.stream.add, response["text"], "thought")
-            except Exception as e:
-                logger.error(f"Memory add failed: {e}")
+                try:
+                    await asyncio.to_thread(self.stream.add, text, "thought")
+                except Exception as e:
+                    logger.error(f"Memory add failed: {e}")
 
     # --- Reflection ---
 

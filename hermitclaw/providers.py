@@ -410,6 +410,7 @@ def _chat_completions(
         "model": config["model"],
         "messages": messages,
         "max_tokens": max_tokens,
+        "frequency_penalty": config.get("frequency_penalty", 0.3),
     }
     if tools:
         completions_tools = _translate_tools_for_completions(TOOLS)
